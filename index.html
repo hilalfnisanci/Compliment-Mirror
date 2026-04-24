@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Compliment Mirror</title>
   <link rel="stylesheet" href="styles.css" />
+  <script src="app.js" defer></script>
 </head>
 <body>
   <div class="container">
@@ -16,6 +17,15 @@
     </div>
 
     <button class="btn" id="new-compliment-btn" type="button">New Compliment</button>
+    <input
+      type="text"
+      id="recipient-name"
+      placeholder="Add a name (optional)"
+      maxlength="60"
+      autocomplete="off"
+    />
+    <button class="btn btn-secondary" id="share-btn" type="button">Share this compliment</button>
+    <p class="share-feedback" id="share-feedback" aria-live="polite"></p>
   </div>
 </body>
 </html>

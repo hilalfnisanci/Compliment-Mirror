@@ -40,6 +40,7 @@ h1 {
   padding: 2rem 2.5rem;
   min-height: 100px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   margin-bottom: 2rem;
@@ -61,8 +62,56 @@ h1 {
   font-family: inherit;
   cursor: pointer;
   transition: background-color 0.2s ease;
+  margin-top: 16px;
 }
 
 .btn:hover {
   background-color: #444;
+}
+
+#recipient-name {
+  width: 100%;
+  padding: 10px 14px;
+  margin-top: 12px;
+  font-family: Georgia, serif;
+  font-size: 1rem;
+  color: #2c2c2c;
+  background: #fff;
+  border: 1px solid #e0ddd8;
+  border-radius: 8px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+#recipient-name:focus {
+  border-color: #aaa;
+}
+
+.btn-secondary {
+  background: transparent;
+  color: #2c2c2c;
+  border: 1px solid #2c2c2c;
+  margin-top: 10px;
+}
+
+.btn-secondary:hover {
+  background: #f0ede8;
+}
+
+.share-feedback {
+  font-size: 0.875rem;
+  color: #555;
+  margin-top: 8px;
+  min-height: 1.4em;
+}
+
+.shared-view .container {
+  padding: 60px 24px;
+}
+
+.shared-header {
+  font-size: 0.875rem;
+  color: #777;
+  margin-bottom: 12px;
+  font-style: normal;
 }
