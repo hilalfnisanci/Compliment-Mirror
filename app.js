@@ -30,6 +30,7 @@ const COMPLIMENTS = [
 let currentIndex = null;
 
 window.addEventListener('DOMContentLoaded', () => {
+  attachThemeToggle();
   const params = new URLSearchParams(window.location.search);
   if (params.has('c')) {
     renderSharedView(params);
@@ -37,6 +38,20 @@ window.addEventListener('DOMContentLoaded', () => {
     renderInteractiveView();
   }
 });
+
+function attachThemeToggle() {
+  const btn = document.getElementById('theme-toggle');
+  const initial = document.documentElement.getAttribute('data-theme');
+  btn.setAttribute('aria-label', initial === 'dark' ? 'Toggle light mode' : 'Toggle dark mode');
+
+  btn.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    btn.setAttribute('aria-label', next === 'dark' ? 'Toggle light mode' : 'Toggle dark mode');
+  });
+}
 
 function renderInteractiveView() {
   pickRandom();
