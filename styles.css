@@ -116,8 +116,7 @@ h1 {
 .spacebar-hint {
   font-size: 0.875rem;
   color: var(--color-subtle);
-  margin-top: 0.5rem;
-  min-height: 1.4em;
+  margin-top: 0.75rem;
   transition: color 0.3s ease;
 }
 

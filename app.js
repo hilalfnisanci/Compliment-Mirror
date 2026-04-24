@@ -160,26 +160,26 @@ function attachSpacebarShortcut() {
 }
 
 function shouldHandleSpacebarShortcut(event) {
-  const isSpaceKey = event && (event.key === ' ' || event.key === 'Spacebar' || event.code === 'Space');
-  if (!isSpaceKey) {
+  // Keep one DOM-aware guard path so focused controls and editable regions behave consistently.
+  if (!event || (event.key !== ' ' && event.key !== 'Spacebar' && event.code !== 'Space')) {
     return false;
   }
 
-  const activeElement = document.activeElement;
-  if (!activeElement) {
+  const target = event.target;
+  if (!target || typeof target !== 'object') {
     return true;
   }
 
-  const tagName = activeElement.tagName ? activeElement.tagName.toUpperCase() : '';
+  const tagName = target.tagName ? target.tagName.toUpperCase() : '';
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tagName)) {
     return false;
   }
 
-  if (activeElement.isContentEditable) {
+  if (target.isContentEditable) {
     return false;
   }
 
-  return !(activeElement.closest && activeElement.closest('[contenteditable="true"]'));
+  return !(target.closest && target.closest('[contenteditable=""], [contenteditable="true"], [contenteditable="plaintext-only"]'));
 }
 
 if (typeof module !== 'undefined') {

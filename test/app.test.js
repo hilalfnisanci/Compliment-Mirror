@@ -7,16 +7,25 @@ function createElement(tagName) {
     textContent: '',
     value: '',
     style: {},
+    attributes: {},
     isContentEditable: false,
     listeners: {},
     addEventListener(type, handler) {
-      this.listeners[type] = handler;
+      if (!this.listeners[type]) {
+        this.listeners[type] = [];
+      }
+
+      this.listeners[type].push(handler);
+    },
+    setAttribute(name, value) {
+      this.attributes[name] = value;
     }
   };
 }
 
 function createDocument() {
   const elements = {
+    'theme-toggle': createElement('button'),
     'new-compliment-btn': createElement('button'),
     'share-btn': createElement('button'),
     compliment: createElement('p'),
@@ -29,15 +38,32 @@ function createDocument() {
   return {
     activeElement: null,
     listeners: {},
+    documentElement: {
+      getAttribute() {
+        return null;
+      },
+      setAttribute() {}
+    },
     getElementById(id) {
       return elements[id] || null;
     },
     addEventListener(type, handler) {
-      this.listeners[type] = handler;
+      if (!this.listeners[type]) {
+        this.listeners[type] = [];
+      }
+
+      this.listeners[type].push(handler);
     },
     removeEventListener(type, handler) {
-      if (this.listeners[type] === handler) {
-        delete this.listeners[type];
+      if (!this.listeners[type]) {
+        return;
+      }
+
+      this.listeners[type] = this.listeners[type].filter(listener => listener !== handler);
+    },
+    dispatchEvent(type, event) {
+      for (const listener of this.listeners[type] || []) {
+        listener(event);
       }
     }
   };
@@ -76,9 +102,14 @@ test('spacebar generates a new compliment in interactive mode', () => {
   app.renderInteractiveView();
 
   Math.random = () => 0.4;
-  document.listeners.keydown({
+  let prevented = false;
+  document.dispatchEvent('keydown', {
     key: ' ',
-    preventDefault() {}
+    code: 'Space',
+    target: createElement('div'),
+    preventDefault() {
+      prevented = true;
+    }
   });
 
   assert.equal(
@@ -86,6 +117,7 @@ test('spacebar generates a new compliment in interactive mode', () => {
     app.COMPLIMENTS[Math.floor(0.4 * app.COMPLIMENTS.length)]
   );
   assert.equal(localStorage.getItem('compliment_view_count'), '2');
+  assert.equal(prevented, true);
 
   Math.random = originalRandom;
   delete global.document;
@@ -109,9 +141,10 @@ test('spacebar is ignored while an input is focused', () => {
   const app = loadApp();
   app.renderInteractiveView();
 
-  document.activeElement = document.getElementById('recipient-name');
-  document.listeners.keydown({
+  document.dispatchEvent('keydown', {
     key: ' ',
+    code: 'Space',
+    target: document.getElementById('recipient-name'),
     preventDefault() {
       throw new Error('preventDefault should not be called when focused on input');
     }
@@ -146,8 +179,10 @@ test('spacebar prevents default scrolling behavior when it fires', () => {
   app.renderInteractiveView();
 
   let prevented = false;
-  document.listeners.keydown({
+  document.dispatchEvent('keydown', {
     key: ' ',
+    code: 'Space',
+    target: createElement('div'),
     preventDefault() {
       prevented = true;
     }
@@ -160,4 +195,38 @@ test('spacebar prevents default scrolling behavior when it fires', () => {
   delete global.localStorage;
   delete global.navigator;
   delete global.location;
+});
+
+test('shared view does not attach the document-level shortcut', () => {
+  const document = createDocument();
+  const localStorage = createLocalStorage();
+
+  global.document = document;
+  global.localStorage = localStorage;
+  global.navigator = { clipboard: { writeText: () => Promise.resolve() } };
+  global.location = { href: 'https://example.com/' };
+  global.window = {
+    location: { search: '?c=1' },
+    addEventListener(type, handler) {
+      if (type === 'DOMContentLoaded') {
+        this.domReady = handler;
+      }
+    }
+  };
+
+  document.body = { classList: { add() {} } };
+  document.querySelector = () => ({ prepend() {} });
+  document.createElement = () => createElement('p');
+
+  loadApp();
+  global.window.domReady();
+
+  assert.deepEqual(document.listeners.keydown || [], []);
+  assert.equal(localStorage.getItem('compliment_view_count'), '1');
+
+  delete global.document;
+  delete global.localStorage;
+  delete global.navigator;
+  delete global.location;
+  delete global.window;
 });
