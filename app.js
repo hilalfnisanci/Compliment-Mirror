@@ -1,3 +1,5 @@
+const VIEW_COUNT_KEY = 'compliment_view_count';
+
 // Do not reorder or delete entries — this breaks existing shared links.
 const COMPLIMENTS = [
   "You make the people around you feel seen.",
@@ -63,6 +65,21 @@ function pickRandom() {
   const next = Math.floor(Math.random() * COMPLIMENTS.length);
   currentIndex = next;
   document.getElementById('compliment').textContent = COMPLIMENTS[currentIndex];
+  incrementViewCount();
+  updateViewCountDisplay();
+}
+
+function incrementViewCount() {
+  const count = (parseInt(localStorage.getItem(VIEW_COUNT_KEY) || '0', 10)) + 1;
+  localStorage.setItem(VIEW_COUNT_KEY, count);
+}
+
+function updateViewCountDisplay() {
+  const count = parseInt(localStorage.getItem(VIEW_COUNT_KEY) || '0', 10);
+  const el = document.getElementById('view-count');
+  if (el) {
+    el.textContent = `This compliment has brightened ${count} day${count === 1 ? '' : 's'}`;
+  }
 }
 
 function handleShare() {
@@ -99,6 +116,8 @@ function renderSharedView(params) {
   }
 
   document.getElementById('compliment').textContent = COMPLIMENTS[index];
+  incrementViewCount();
+  updateViewCountDisplay();
 
   if (name) {
     const header = document.createElement('p');
