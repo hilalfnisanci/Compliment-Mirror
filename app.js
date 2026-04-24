@@ -58,6 +58,7 @@ function attachThemeToggle() {
 function renderInteractiveView() {
   pickRandom();
   document.getElementById('new-compliment-btn').addEventListener('click', pickRandom);
+  document.addEventListener('keydown', handleShortcutKeydown);
   document.getElementById('share-btn').addEventListener('click', handleShare);
 }
 
@@ -80,6 +81,28 @@ function updateViewCountDisplay() {
   if (el) {
     el.textContent = `This compliment has brightened ${count} day${count === 1 ? '' : 's'}`;
   }
+}
+
+function handleShortcutKeydown(event) {
+  if (!isSpacebarShortcut(event) || isTypingTarget(document.activeElement)) {
+    return;
+  }
+
+  event.preventDefault();
+  pickRandom();
+}
+
+function isSpacebarShortcut(event) {
+  return event.code === 'Space' || event.key === ' ';
+}
+
+function isTypingTarget(element) {
+  if (!element || !element.tagName) {
+    return false;
+  }
+
+  const tagName = element.tagName.toLowerCase();
+  return tagName === 'input' || tagName === 'textarea' || element.isContentEditable;
 }
 
 function handleShare() {
@@ -131,7 +154,7 @@ function renderSharedView(params) {
 }
 
 function hideInteractiveControls() {
-  ['new-compliment-btn', 'recipient-name', 'share-btn', 'share-feedback']
+  ['new-compliment-btn', 'new-compliment-hint', 'recipient-name', 'share-btn', 'share-feedback']
     .forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = 'none';

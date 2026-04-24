@@ -67,6 +67,11 @@ h1 {
   transition: color 0.3s ease;
 }
 
+.muted-text {
+  color: var(--color-subtle);
+  transition: color 0.3s ease;
+}
+
 .compliment-box {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
@@ -111,6 +116,11 @@ h1 {
 
 .btn:hover {
   background-color: var(--bg-btn-hover);
+}
+
+.shortcut-hint {
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
 }
 
 #recipient-name {
