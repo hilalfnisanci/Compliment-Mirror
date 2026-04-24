@@ -88,6 +88,14 @@ h1 {
   transition: color 0.3s ease;
 }
 
+.view-count {
+  font-size: 0.875rem;
+  color: var(--color-subtle);
+  margin-top: 0.75rem;
+  min-height: 1.4em;
+  transition: color 0.3s ease;
+}
+
 .btn {
   background-color: var(--bg-btn);
   color: var(--color-btn-text);
