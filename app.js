@@ -171,7 +171,7 @@ function shouldHandleSpacebarShortcut(event) {
   }
 
   const tagName = target.tagName ? target.tagName.toUpperCase() : '';
-  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tagName)) {
+  if (['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(tagName)) {
     return false;
   }
 
@@ -179,7 +179,7 @@ function shouldHandleSpacebarShortcut(event) {
     return false;
   }
 
-  return !(target.closest && target.closest('[contenteditable=""], [contenteditable="true"], [contenteditable="plaintext-only"]'));
+  return true;
 }
 
 if (typeof module !== 'undefined') {

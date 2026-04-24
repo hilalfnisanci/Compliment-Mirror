@@ -163,7 +163,7 @@ test('spacebar is ignored while an input is focused', () => {
   delete global.location;
 });
 
-test('spacebar prevents default scrolling behavior when it fires', () => {
+test('spacebar is ignored while a button is focused', () => {
   const document = createDocument();
   const localStorage = createLocalStorage();
 
@@ -178,17 +178,20 @@ test('spacebar prevents default scrolling behavior when it fires', () => {
   const app = loadApp();
   app.renderInteractiveView();
 
-  let prevented = false;
   document.dispatchEvent('keydown', {
     key: ' ',
     code: 'Space',
-    target: createElement('div'),
+    target: document.getElementById('share-btn'),
     preventDefault() {
-      prevented = true;
+      throw new Error('preventDefault should not be called when focused on button');
     }
   });
 
-  assert.equal(prevented, true);
+  assert.equal(
+    document.getElementById('compliment').textContent,
+    app.COMPLIMENTS[0]
+  );
+  assert.equal(localStorage.getItem('compliment_view_count'), '1');
 
   Math.random = originalRandom;
   delete global.document;
