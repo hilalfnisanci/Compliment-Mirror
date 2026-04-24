@@ -30,16 +30,19 @@ const COMPLIMENTS = [
 ];
 
 let currentIndex = null;
+let shortcutHandler = null;
 
-window.addEventListener('DOMContentLoaded', () => {
-  attachThemeToggle();
-  const params = new URLSearchParams(window.location.search);
-  if (params.has('c')) {
-    renderSharedView(params);
-  } else {
-    renderInteractiveView();
-  }
-});
+if (typeof window !== 'undefined') {
+  window.addEventListener('DOMContentLoaded', () => {
+    attachThemeToggle();
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('c')) {
+      renderSharedView(params);
+    } else {
+      renderInteractiveView();
+    }
+  });
+}
 
 function attachThemeToggle() {
   const btn = document.getElementById('theme-toggle');
@@ -59,6 +62,7 @@ function renderInteractiveView() {
   pickRandom();
   document.getElementById('new-compliment-btn').addEventListener('click', pickRandom);
   document.getElementById('share-btn').addEventListener('click', handleShare);
+  attachSpacebarShortcut();
 }
 
 function pickRandom() {
@@ -131,9 +135,59 @@ function renderSharedView(params) {
 }
 
 function hideInteractiveControls() {
-  ['new-compliment-btn', 'recipient-name', 'share-btn', 'share-feedback']
+  ['new-compliment-btn', 'spacebar-hint', 'recipient-name', 'share-btn', 'share-feedback']
     .forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = 'none';
     });
+}
+
+function attachSpacebarShortcut() {
+  if (shortcutHandler) {
+    document.removeEventListener('keydown', shortcutHandler);
+  }
+
+  shortcutHandler = (event) => {
+    if (!shouldHandleSpacebarShortcut(event)) {
+      return;
+    }
+
+    event.preventDefault();
+    pickRandom();
+  };
+
+  document.addEventListener('keydown', shortcutHandler);
+}
+
+function shouldHandleSpacebarShortcut(event) {
+  const isSpaceKey = event && (event.key === ' ' || event.key === 'Spacebar' || event.code === 'Space');
+  if (!isSpaceKey) {
+    return false;
+  }
+
+  const activeElement = document.activeElement;
+  if (!activeElement) {
+    return true;
+  }
+
+  const tagName = activeElement.tagName ? activeElement.tagName.toUpperCase() : '';
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tagName)) {
+    return false;
+  }
+
+  if (activeElement.isContentEditable) {
+    return false;
+  }
+
+  return !(activeElement.closest && activeElement.closest('[contenteditable="true"]'));
+}
+
+if (typeof module !== 'undefined') {
+  module.exports = {
+    attachSpacebarShortcut,
+    shouldHandleSpacebarShortcut,
+    pickRandom,
+    renderInteractiveView,
+    COMPLIMENTS
+  };
 }

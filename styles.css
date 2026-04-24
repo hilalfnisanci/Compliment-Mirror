@@ -113,6 +113,14 @@ h1 {
   background-color: var(--bg-btn-hover);
 }
 
+.spacebar-hint {
+  font-size: 0.875rem;
+  color: var(--color-subtle);
+  margin-top: 0.5rem;
+  min-height: 1.4em;
+  transition: color 0.3s ease;
+}
+
 #recipient-name {
   width: 100%;
   padding: 10px 14px;
