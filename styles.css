@@ -1,3 +1,35 @@
+:root {
+  --bg-body: #faf9f6;
+  --color-text: #2c2c2c;
+  --color-subtle: #777;
+  --bg-card: #fff;
+  --border-color: #e0ddd8;
+  --color-muted: #555;
+  --bg-btn: #2c2c2c;
+  --color-btn-text: #fff;
+  --bg-btn-hover: #444;
+  --color-input: #2c2c2c;
+  --bg-input: #fff;
+  --border-focus: #aaa;
+  --bg-secondary-hover: #f0ede8;
+}
+
+[data-theme="dark"] {
+  --bg-body: #1a1a1a;
+  --color-text: #e8e6e3;
+  --color-subtle: #999;
+  --bg-card: #2a2a2a;
+  --border-color: #444;
+  --color-muted: #c0bdb8;
+  --bg-btn: #e8e6e3;
+  --color-btn-text: #1a1a1a;
+  --bg-btn-hover: #ccc;
+  --color-input: #e8e6e3;
+  --bg-input: #2a2a2a;
+  --border-focus: #777;
+  --bg-secondary-hover: #383838;
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -6,12 +38,13 @@
 
 body {
   font-family: Georgia, 'Times New Roman', serif;
-  background-color: #faf9f6;
-  color: #2c2c2c;
+  background-color: var(--bg-body);
+  color: var(--color-text);
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .container {
@@ -29,13 +62,14 @@ h1 {
 
 .subtitle {
   font-size: 1rem;
-  color: #777;
+  color: var(--color-subtle);
   margin-bottom: 2.5rem;
+  transition: color 0.3s ease;
 }
 
 .compliment-box {
-  background: #fff;
-  border: 1px solid #e0ddd8;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 2rem 2.5rem;
   min-height: 100px;
@@ -44,29 +78,31 @@ h1 {
   align-items: center;
   justify-content: center;
   margin-bottom: 2rem;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .compliment-text {
   font-size: 1.25rem;
   font-style: italic;
-  color: #555;
+  color: var(--color-muted);
+  transition: color 0.3s ease;
 }
 
 .btn {
-  background-color: #2c2c2c;
-  color: #fff;
+  background-color: var(--bg-btn);
+  color: var(--color-btn-text);
   border: none;
   border-radius: 8px;
   padding: 0.75rem 2rem;
   font-size: 1rem;
   font-family: inherit;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.2s ease, color 0.3s ease;
   margin-top: 16px;
 }
 
 .btn:hover {
-  background-color: #444;
+  background-color: var(--bg-btn-hover);
 }
 
 #recipient-name {
@@ -75,34 +111,37 @@ h1 {
   margin-top: 12px;
   font-family: Georgia, serif;
   font-size: 1rem;
-  color: #2c2c2c;
-  background: #fff;
-  border: 1px solid #e0ddd8;
+  color: var(--color-input);
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   outline: none;
   box-sizing: border-box;
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
 #recipient-name:focus {
-  border-color: #aaa;
+  border-color: var(--border-focus);
 }
 
 .btn-secondary {
   background: transparent;
-  color: #2c2c2c;
-  border: 1px solid #2c2c2c;
+  color: var(--color-text);
+  border: 1px solid var(--border-color);
   margin-top: 10px;
+  transition: background-color 0.2s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
 .btn-secondary:hover {
-  background: #f0ede8;
+  background: var(--bg-secondary-hover);
 }
 
 .share-feedback {
   font-size: 0.875rem;
-  color: #555;
+  color: var(--color-muted);
   margin-top: 8px;
   min-height: 1.4em;
+  transition: color 0.3s ease;
 }
 
 .shared-view .container {
@@ -111,7 +150,45 @@ h1 {
 
 .shared-header {
   font-size: 0.875rem;
-  color: #777;
+  color: var(--color-subtle);
   margin-bottom: 12px;
   font-style: normal;
+  transition: color 0.3s ease;
+}
+
+.theme-toggle {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  width: 2.5rem;
+  height: 2.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text);
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+
+.theme-toggle:hover {
+  background-color: var(--bg-secondary-hover);
+}
+
+.icon-sun {
+  display: none;
+}
+
+.icon-moon {
+  display: block;
+}
+
+[data-theme="dark"] .icon-sun {
+  display: block;
+}
+
+[data-theme="dark"] .icon-moon {
+  display: none;
 }

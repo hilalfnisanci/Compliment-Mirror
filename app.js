@@ -30,6 +30,7 @@ const COMPLIMENTS = [
 let currentIndex = null;
 
 window.addEventListener('DOMContentLoaded', () => {
+  initTheme();
   const params = new URLSearchParams(window.location.search);
   if (params.has('c')) {
     renderSharedView(params);
@@ -37,6 +38,15 @@ window.addEventListener('DOMContentLoaded', () => {
     renderInteractiveView();
   }
 });
+
+function initTheme() {
+  document.getElementById('theme-toggle').addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+  });
+}
 
 function renderInteractiveView() {
   pickRandom();
