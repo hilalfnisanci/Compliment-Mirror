@@ -55,7 +55,9 @@ function handleShare() {
   const params = new URLSearchParams({ c: currentIndex });
   if (name) params.set('to', name);
 
-  const url = `${location.origin}${location.pathname}?${params}`;
+  // location.origin returns "null" for file:// (opaque origins); split href instead
+  const base = location.href.split('?')[0];
+  const url = `${base}?${params}`;
 
   navigator.clipboard.writeText(url).then(() => {
     showFeedback('Link copied to clipboard!');
