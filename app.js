@@ -1,4 +1,5 @@
 const VIEW_COUNT_KEY = 'compliment_view_count';
+const VISITOR_COUNT_KEY = 'visitor_count';
 const RANDOM_BODY_BACKGROUND_KEY = '--bg-body-pastel';
 const ACTIVE_BODY_BACKGROUND_KEY = '--bg-body-current';
 
@@ -38,6 +39,8 @@ if (typeof window !== 'undefined') {
   window.addEventListener('DOMContentLoaded', () => {
     applyRandomBackgroundColor();
     attachThemeToggle();
+    incrementVisitorCount();
+    updateVisitorCountDisplay();
     const params = new URLSearchParams(window.location.search);
     if (params.has('c')) {
       renderSharedView(params);
@@ -123,6 +126,19 @@ function updateViewCountDisplay() {
   const el = document.getElementById('view-count');
   if (el) {
     el.textContent = `This compliment has brightened ${count} day${count === 1 ? '' : 's'}`;
+  }
+}
+
+function incrementVisitorCount() {
+  const count = (parseInt(localStorage.getItem(VISITOR_COUNT_KEY) || '0', 10)) + 1;
+  localStorage.setItem(VISITOR_COUNT_KEY, count);
+}
+
+function updateVisitorCountDisplay() {
+  const count = parseInt(localStorage.getItem(VISITOR_COUNT_KEY) || '0', 10);
+  const el = document.getElementById('visitor-counter');
+  if (el) {
+    el.textContent = `You've visited ${count} time${count === 1 ? '' : 's'}`;
   }
 }
 
@@ -227,6 +243,8 @@ if (typeof module !== 'undefined') {
     applyRandomBackgroundColor,
     attachSpacebarShortcut,
     generateRandomPastelColor,
+    incrementVisitorCount,
+    updateVisitorCountDisplay,
     shouldHandleSpacebarShortcut,
     pickRandom,
     renderInteractiveView,

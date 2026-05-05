@@ -159,6 +159,13 @@ h1 {
   transition: color 0.3s ease;
 }
 
+.visitor-counter {
+  font-size: 0.8rem;
+  color: var(--color-subtle);
+  margin-top: 1.5rem;
+  transition: color 0.3s ease;
+}
+
 .shared-view .container {
   padding: 60px 24px;
 }
