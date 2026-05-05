@@ -103,17 +103,20 @@ function attachThemeToggle() {
 
 function renderInteractiveView() {
   pickRandom();
-  document.getElementById('new-compliment-btn').addEventListener('click', pickRandom);
+  document.getElementById('new-compliment-btn').addEventListener('click', () => pickRandom(true));
   document.getElementById('share-btn').addEventListener('click', handleShare);
   attachSpacebarShortcut();
 }
 
-function pickRandom() {
+function pickRandom(celebrate = false) {
   const next = Math.floor(Math.random() * COMPLIMENTS.length);
   currentIndex = next;
   document.getElementById('compliment').textContent = COMPLIMENTS[currentIndex];
   incrementViewCount();
   updateViewCountDisplay();
+  if (celebrate) {
+    triggerConfetti();
+  }
 }
 
 function incrementViewCount() {
@@ -209,7 +212,7 @@ function attachSpacebarShortcut() {
     }
 
     event.preventDefault();
-    pickRandom();
+    pickRandom(true);
   };
 
   document.addEventListener('keydown', shortcutHandler);
@@ -238,6 +241,86 @@ function shouldHandleSpacebarShortcut(event) {
   return true;
 }
 
+const CONFETTI_COLORS = ['#ff6b6b', '#ffd93d', '#6bcB77', '#4d96ff', '#c780fa', '#ff9f68'];
+
+function triggerConfetti() {
+  if (typeof document === 'undefined') return;
+  const canvas = document.getElementById('confetti-canvas');
+  if (!canvas || typeof canvas.getContext !== 'function') return;
+
+  const win = typeof window !== 'undefined' ? window : null;
+  if (win && win.matchMedia && win.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    return;
+  }
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  const dpr = (win && win.devicePixelRatio) || 1;
+  const width = (win && win.innerWidth) || canvas.clientWidth || 800;
+  const height = (win && win.innerHeight) || canvas.clientHeight || 600;
+  canvas.width = Math.floor(width * dpr);
+  canvas.height = Math.floor(height * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  const particleCount = 80;
+  const originX = width / 2;
+  const originY = height / 2;
+  const particles = [];
+  for (let i = 0; i < particleCount; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 4 + Math.random() * 5;
+    particles.push({
+      x: originX,
+      y: originY,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 2,
+      size: 5 + Math.random() * 5,
+      rotation: Math.random() * Math.PI * 2,
+      vr: (Math.random() - 0.5) * 0.3,
+      color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+      life: 1
+    });
+  }
+
+  const gravity = 0.18;
+  const drag = 0.985;
+  const fadeStart = 40;
+  let frame = 0;
+
+  const raf = (win && win.requestAnimationFrame) || ((cb) => setTimeout(() => cb(Date.now()), 16));
+
+  function step() {
+    frame++;
+    ctx.clearRect(0, 0, width, height);
+    let alive = false;
+    for (const p of particles) {
+      p.vx *= drag;
+      p.vy = p.vy * drag + gravity;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.rotation += p.vr;
+      if (frame > fadeStart) p.life -= 0.02;
+      if (p.life <= 0 || p.y > height + 50) continue;
+      alive = true;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rotation);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+      ctx.restore();
+    }
+    if (alive && frame < 200) {
+      raf(step);
+    } else {
+      ctx.clearRect(0, 0, width, height);
+    }
+  }
+
+  raf(step);
+}
+
 if (typeof module !== 'undefined') {
   module.exports = {
     applyRandomBackgroundColor,
@@ -248,6 +331,7 @@ if (typeof module !== 'undefined') {
     shouldHandleSpacebarShortcut,
     pickRandom,
     renderInteractiveView,
+    triggerConfetti,
     COMPLIMENTS
   };
 }
