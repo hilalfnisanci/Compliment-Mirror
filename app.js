@@ -114,6 +114,85 @@ function pickRandom() {
   document.getElementById('compliment').textContent = COMPLIMENTS[currentIndex];
   incrementViewCount();
   updateViewCountDisplay();
+  triggerConfetti();
+}
+
+const CONFETTI_COLORS = ['#ff5e7e', '#ffbe3d', '#3ddc97', '#5ab2ff', '#c77dff', '#ff9f68'];
+
+function triggerConfetti() {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+  if (typeof window.requestAnimationFrame !== 'function') return;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const canvas = document.getElementById('confetti-canvas');
+  if (!canvas || typeof canvas.getContext !== 'function') return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  const dpr = window.devicePixelRatio || 1;
+  const width = window.innerWidth || document.documentElement.clientWidth || 800;
+  const height = window.innerHeight || document.documentElement.clientHeight || 600;
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+  canvas.style.width = width + 'px';
+  canvas.style.height = height + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  const particles = [];
+  const count = 80;
+  const originX = width / 2;
+  const originY = height / 3;
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 4 + Math.random() * 6;
+    particles.push({
+      x: originX,
+      y: originY,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 2,
+      size: 5 + Math.random() * 5,
+      color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+      rotation: Math.random() * Math.PI * 2,
+      vr: (Math.random() - 0.5) * 0.3,
+      life: 1
+    });
+  }
+
+  const gravity = 0.18;
+  const drag = 0.99;
+  const fade = 0.012;
+  const start = Date.now();
+  const maxDuration = 1800;
+
+  function frame() {
+    ctx.clearRect(0, 0, width, height);
+    let alive = 0;
+    for (const p of particles) {
+      if (p.life <= 0) continue;
+      p.vx *= drag;
+      p.vy = p.vy * drag + gravity;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.rotation += p.vr;
+      p.life -= fade;
+      if (p.life <= 0 || p.y > height + 40) continue;
+      alive++;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rotation);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.5);
+      ctx.restore();
+    }
+    if (alive > 0 && Date.now() - start < maxDuration) {
+      window.requestAnimationFrame(frame);
+    } else {
+      ctx.clearRect(0, 0, width, height);
+    }
+  }
+
+  window.requestAnimationFrame(frame);
 }
 
 function incrementViewCount() {
@@ -248,6 +327,7 @@ if (typeof module !== 'undefined') {
     shouldHandleSpacebarShortcut,
     pickRandom,
     renderInteractiveView,
+    triggerConfetti,
     COMPLIMENTS
   };
 }

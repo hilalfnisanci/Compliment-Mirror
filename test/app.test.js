@@ -337,6 +337,70 @@ test('shared view does not attach the document-level shortcut', () => {
   delete global.window;
 });
 
+test('triggerConfetti draws onto the confetti canvas when invoked', () => {
+  const document = createDocument();
+  const ctxCalls = [];
+  const ctx = new Proxy({}, {
+    get(_, key) {
+      return (...args) => { ctxCalls.push([key, args]); };
+    },
+    set() { return true; }
+  });
+  const canvas = createElement('canvas');
+  canvas.getContext = () => ctx;
+  document.getElementById = (id) => {
+    if (id === 'confetti-canvas') return canvas;
+    return null;
+  };
+
+  let rafCalls = 0;
+  global.document = document;
+  global.localStorage = createLocalStorage();
+  global.navigator = { clipboard: { writeText: () => Promise.resolve() } };
+  global.location = { href: 'https://example.com/' };
+  global.window = {
+    innerWidth: 800,
+    innerHeight: 600,
+    devicePixelRatio: 1,
+    requestAnimationFrame(fn) { rafCalls++; return 0; },
+    matchMedia: () => ({ matches: false }),
+    addEventListener() {}
+  };
+
+  const app = loadApp();
+  app.triggerConfetti();
+
+  assert.equal(rafCalls, 1);
+  assert.equal(canvas.width, 800);
+  assert.equal(canvas.height, 600);
+
+  cleanupGlobals();
+});
+
+test('triggerConfetti is a no-op when the user prefers reduced motion', () => {
+  const document = createDocument();
+  let getContextCalls = 0;
+  const canvas = createElement('canvas');
+  canvas.getContext = () => { getContextCalls++; return {}; };
+  document.getElementById = (id) => (id === 'confetti-canvas' ? canvas : null);
+
+  global.document = document;
+  global.localStorage = createLocalStorage();
+  global.navigator = { clipboard: { writeText: () => Promise.resolve() } };
+  global.location = { href: 'https://example.com/' };
+  global.window = {
+    requestAnimationFrame() {},
+    matchMedia: (q) => ({ matches: q.includes('reduce') }),
+    addEventListener() {}
+  };
+
+  const app = loadApp();
+  app.triggerConfetti();
+
+  assert.equal(getContextCalls, 0);
+  cleanupGlobals();
+});
+
 test('generateRandomPastelColor returns a predictable pastel hsl value', () => {
   const originalRandom = Math.random;
   let calls = 0;
