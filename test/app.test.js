@@ -37,12 +37,28 @@ function createDocument() {
 
   return {
     activeElement: null,
+    body: {
+      style: {},
+      classList: { add() {} }
+    },
     listeners: {},
     documentElement: {
-      getAttribute() {
-        return null;
+      attributes: {},
+      style: {
+        properties: {},
+        setProperty(name, value) {
+          this.properties[name] = value;
+        },
+        getPropertyValue(name) {
+          return this.properties[name] || '';
+        }
       },
-      setAttribute() {}
+      getAttribute() {
+        return this.attributes['data-theme'] || null;
+      },
+      setAttribute(name, value) {
+        this.attributes[name] = value;
+      }
     },
     getElementById(id) {
       return elements[id] || null;
@@ -67,6 +83,41 @@ function createDocument() {
       }
     }
   };
+}
+
+function loadAppAndDispatchDomReady({ search = '', initialTheme = null } = {}) {
+  const document = createDocument();
+  const localStorage = createLocalStorage();
+
+  if (initialTheme !== null) {
+    document.documentElement.setAttribute('data-theme', initialTheme);
+  }
+
+  global.document = document;
+  global.localStorage = localStorage;
+  global.navigator = { clipboard: { writeText: () => Promise.resolve() } };
+  global.location = { href: 'https://example.com/' };
+  global.window = {
+    location: { search },
+    addEventListener(type, handler) {
+      if (type === 'DOMContentLoaded') {
+        this.domReady = handler;
+      }
+    }
+  };
+
+  const app = loadApp();
+  global.window.domReady();
+
+  return { app, document, localStorage };
+}
+
+function cleanupGlobals() {
+  delete global.document;
+  delete global.localStorage;
+  delete global.navigator;
+  delete global.location;
+  delete global.window;
 }
 
 function createLocalStorage() {
@@ -217,7 +268,6 @@ test('shared view does not attach the document-level shortcut', () => {
     }
   };
 
-  document.body = { classList: { add() {} } };
   document.querySelector = () => ({ prepend() {} });
   document.createElement = () => createElement('p');
 
@@ -232,4 +282,133 @@ test('shared view does not attach the document-level shortcut', () => {
   delete global.navigator;
   delete global.location;
   delete global.window;
+});
+
+test('generateRandomPastelColor returns a predictable pastel hsl value', () => {
+  const originalRandom = Math.random;
+  let calls = 0;
+  const values = [0.5, 0.25, 0.75];
+  Math.random = () => values[calls++];
+
+  const app = loadApp();
+
+  assert.equal(app.generateRandomPastelColor(), 'hsl(180 69% 91%)');
+
+  Math.random = originalRandom;
+});
+
+test('DOMContentLoaded applies a random background color', () => {
+  const originalRandom = Math.random;
+  let calls = 0;
+  const values = [0.5, 0.25, 0.75, 0];
+  Math.random = () => values[calls++];
+
+  const { app, document } = loadAppAndDispatchDomReady();
+
+  assert.equal(
+    document.documentElement.style.getPropertyValue('--bg-body-pastel'),
+    'hsl(180 69% 91%)'
+  );
+  assert.equal(document.body.style.backgroundColor, 'hsl(180 69% 91%)');
+  assert.equal(
+    document.documentElement.style.getPropertyValue('--bg-body-current'),
+    'var(--bg-body-pastel, var(--bg-body))'
+  );
+  assert.equal(document.getElementById('compliment').textContent, app.COMPLIMENTS[0]);
+
+  Math.random = originalRandom;
+  cleanupGlobals();
+});
+
+test('DOMContentLoaded keeps the random pastel visible with no saved preference in light mode', () => {
+  const originalRandom = Math.random;
+  let calls = 0;
+  const values = [0.5, 0.25, 0.75, 0];
+  Math.random = () => values[calls++];
+
+  const { document } = loadAppAndDispatchDomReady();
+
+  assert.equal(document.documentElement.getAttribute('data-theme'), null);
+  assert.equal(document.body.style.backgroundColor, 'hsl(180 69% 91%)');
+
+  Math.random = originalRandom;
+  cleanupGlobals();
+});
+
+test('DOMContentLoaded keeps the random pastel visible with a saved light theme', () => {
+  const originalRandom = Math.random;
+  let calls = 0;
+  const values = [0.5, 0.25, 0.75, 0];
+  Math.random = () => values[calls++];
+
+  const { document } = loadAppAndDispatchDomReady({ initialTheme: 'light' });
+
+  assert.equal(document.documentElement.getAttribute('data-theme'), 'light');
+  assert.equal(document.body.style.backgroundColor, 'hsl(180 69% 91%)');
+
+  Math.random = originalRandom;
+  cleanupGlobals();
+});
+
+test('DOMContentLoaded keeps the random pastel visible with a saved dark theme', () => {
+  const originalRandom = Math.random;
+  let calls = 0;
+  const values = [0.5, 0.25, 0.75, 0];
+  Math.random = () => values[calls++];
+
+  const { document } = loadAppAndDispatchDomReady({ initialTheme: 'dark' });
+
+  assert.equal(document.documentElement.getAttribute('data-theme'), 'dark');
+  assert.equal(document.body.style.backgroundColor, 'hsl(180 69% 91%)');
+
+  Math.random = originalRandom;
+  cleanupGlobals();
+});
+
+test('DOMContentLoaded keeps the random pastel visible with a dark system preference and no saved theme', () => {
+  const originalRandom = Math.random;
+  let calls = 0;
+  const values = [0.5, 0.25, 0.75, 0];
+  Math.random = () => values[calls++];
+
+  const { document } = loadAppAndDispatchDomReady({ initialTheme: 'dark' });
+
+  assert.equal(document.documentElement.getAttribute('data-theme'), 'dark');
+  assert.equal(document.body.style.backgroundColor, 'hsl(180 69% 91%)');
+
+  Math.random = originalRandom;
+  cleanupGlobals();
+});
+
+test('theme toggle restores theme-controlled backgrounds after the initial pastel load', () => {
+  const originalRandom = Math.random;
+  let calls = 0;
+  const values = [0.5, 0.25, 0.75, 0];
+  Math.random = () => values[calls++];
+
+  const { document, localStorage } = loadAppAndDispatchDomReady();
+
+  const toggle = document.getElementById('theme-toggle');
+  toggle.listeners.click[0]();
+
+  assert.equal(document.documentElement.getAttribute('data-theme'), 'dark');
+  assert.equal(localStorage.getItem('theme'), 'dark');
+  assert.equal(document.body.style.backgroundColor, '');
+  assert.equal(
+    document.documentElement.style.getPropertyValue('--bg-body-current'),
+    'var(--bg-body)'
+  );
+
+  toggle.listeners.click[0]();
+
+  assert.equal(document.documentElement.getAttribute('data-theme'), 'light');
+  assert.equal(localStorage.getItem('theme'), 'light');
+  assert.equal(document.body.style.backgroundColor, '');
+  assert.equal(
+    document.documentElement.style.getPropertyValue('--bg-body-current'),
+    'var(--bg-body-pastel, var(--bg-body))'
+  );
+
+  Math.random = originalRandom;
+  cleanupGlobals();
 });

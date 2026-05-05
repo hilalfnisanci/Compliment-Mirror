@@ -1,4 +1,6 @@
 const VIEW_COUNT_KEY = 'compliment_view_count';
+const RANDOM_BODY_BACKGROUND_KEY = '--bg-body-pastel';
+const ACTIVE_BODY_BACKGROUND_KEY = '--bg-body-current';
 
 // Do not reorder or delete entries — this breaks existing shared links.
 const COMPLIMENTS = [
@@ -34,6 +36,7 @@ let shortcutHandler = null;
 
 if (typeof window !== 'undefined') {
   window.addEventListener('DOMContentLoaded', () => {
+    applyRandomBackgroundColor();
     attachThemeToggle();
     const params = new URLSearchParams(window.location.search);
     if (params.has('c')) {
@@ -42,6 +45,42 @@ if (typeof window !== 'undefined') {
       renderInteractiveView();
     }
   });
+}
+
+function generateRandomPastelColor() {
+  const hue = Math.floor(Math.random() * 360);
+  const saturation = 65 + Math.floor(Math.random() * 16);
+  const lightness = 84 + Math.floor(Math.random() * 10);
+  return `hsl(${hue} ${saturation}% ${lightness}%)`;
+}
+
+function applyRandomBackgroundColor(doc = document) {
+  if (!doc || !doc.documentElement || !doc.documentElement.style || !doc.body || !doc.body.style) {
+    return null;
+  }
+
+  const color = generateRandomPastelColor();
+  doc.documentElement.style.setProperty(RANDOM_BODY_BACKGROUND_KEY, color);
+  syncBackgroundColor(doc);
+  doc.body.style.backgroundColor = color;
+  return color;
+}
+
+function syncBackgroundColor(doc = document) {
+  if (!doc || !doc.documentElement || !doc.documentElement.style) {
+    return;
+  }
+
+  if (doc.body && doc.body.style) {
+    doc.body.style.backgroundColor = '';
+  }
+
+  const theme = doc.documentElement.getAttribute('data-theme');
+  const activeColor = theme === 'dark'
+    ? 'var(--bg-body)'
+    : `var(${RANDOM_BODY_BACKGROUND_KEY}, var(--bg-body))`;
+
+  doc.documentElement.style.setProperty(ACTIVE_BODY_BACKGROUND_KEY, activeColor);
 }
 
 function attachThemeToggle() {
@@ -54,6 +93,7 @@ function attachThemeToggle() {
     const next = current === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', next);
     localStorage.setItem('theme', next);
+    syncBackgroundColor();
     btn.setAttribute('aria-label', next === 'dark' ? 'Toggle light mode' : 'Toggle dark mode');
   });
 }
@@ -184,7 +224,9 @@ function shouldHandleSpacebarShortcut(event) {
 
 if (typeof module !== 'undefined') {
   module.exports = {
+    applyRandomBackgroundColor,
     attachSpacebarShortcut,
+    generateRandomPastelColor,
     shouldHandleSpacebarShortcut,
     pickRandom,
     renderInteractiveView,
