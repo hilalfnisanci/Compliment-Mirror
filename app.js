@@ -151,7 +151,6 @@ function recordComplimentInHistory(text) {
   const store = getSessionStorage();
   if (!store || typeof text !== 'string') return;
   const history = getComplimentHistory();
-  if (history[0] === text) return;
   history.unshift(text);
   if (history.length > COMPLIMENT_HISTORY_LIMIT) {
     history.length = COMPLIMENT_HISTORY_LIMIT;

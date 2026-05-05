@@ -43,6 +43,11 @@
       <p class="compliment-text" id="compliment">Your compliment will appear here.</p>
     </div>
 
+    <section class="compliment-history" id="compliment-history" hidden aria-label="Recent compliments">
+      <h2 class="compliment-history-title">Recent compliments</h2>
+      <ul class="compliment-history-list" id="compliment-history-list"></ul>
+    </section>
+
     <p class="view-count" id="view-count"></p>
 
     <button class="btn" id="new-compliment-btn" type="button">New Compliment</button>
@@ -57,11 +62,6 @@
     <button class="btn btn-secondary" id="share-btn" type="button">Share this compliment</button>
     <p class="share-feedback" id="share-feedback" aria-live="polite"></p>
     <p class="visitor-counter" id="visitor-counter"></p>
-
-    <section class="compliment-history" id="compliment-history" hidden aria-label="Recent compliments">
-      <h2 class="compliment-history-title">Recent compliments</h2>
-      <ul class="compliment-history-list" id="compliment-history-list"></ul>
-    </section>
   </div>
   <canvas class="confetti-canvas" id="confetti-canvas" aria-hidden="true"></canvas>
 </body>

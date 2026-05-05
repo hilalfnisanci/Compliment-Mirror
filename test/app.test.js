@@ -699,7 +699,7 @@ test('compliment history caps at 5 entries (newest first)', () => {
   cleanupGlobals();
 });
 
-test('compliment history dedupes consecutive duplicates', () => {
+test('compliment history preserves consecutive duplicates in newest-first order', () => {
   global.document = createDocument();
   global.localStorage = createLocalStorage();
   global.sessionStorage = createSessionStorage();
@@ -713,7 +713,7 @@ test('compliment history dedupes consecutive duplicates', () => {
   app.recordComplimentInHistory('world');
 
   const stored = JSON.parse(global.sessionStorage.getItem('compliment_history'));
-  assert.deepEqual(stored, ['world', 'hello']);
+  assert.deepEqual(stored, ['world', 'hello', 'hello']);
 
   cleanupGlobals();
 });
