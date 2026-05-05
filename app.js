@@ -110,30 +110,51 @@ function renderInteractiveView() {
   attachSpacebarShortcut();
 }
 
+const COMPLIMENT_FADE_MS = 350;
+
 function setComplimentText(text) {
   if (typeof document === 'undefined') return;
   const el = document.getElementById('compliment');
   if (!el) return;
 
   const win = typeof window !== 'undefined' ? window : null;
-  const raf = win && typeof win.requestAnimationFrame === 'function'
-    ? win.requestAnimationFrame.bind(win)
-    : null;
   const reduceMotion = !!(win && win.matchMedia && win.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const canTransition = !!(
+    win &&
+    typeof win.setTimeout === 'function' &&
+    el.style &&
+    typeof el.addEventListener === 'function'
+  );
 
-  if (!raf || reduceMotion || !el.style) {
+  if (reduceMotion || !canTransition) {
     el.textContent = text;
     if (el.style) el.style.opacity = '';
     return;
   }
 
-  el.style.opacity = '0';
-  raf(() => {
+  // Defer the swap until the fade-out transition has actually completed,
+  // not on the next animation frame. transitionend fires when opacity hits 0;
+  // the setTimeout is a safety net in case transitionend never fires
+  // (e.g. element detached, transition cancelled).
+  let swapped = false;
+  const swap = () => {
+    if (swapped) return;
+    swapped = true;
+    if (typeof el.removeEventListener === 'function') {
+      el.removeEventListener('transitionend', onEnd);
+    }
     el.textContent = text;
-    raf(() => {
-      el.style.opacity = '1';
-    });
-  });
+    el.style.opacity = '1';
+  };
+  const onEnd = (event) => {
+    if (event && event.propertyName && event.propertyName !== 'opacity') return;
+    swap();
+  };
+
+  el.addEventListener('transitionend', onEnd);
+  el.style.opacity = '0';
+
+  win.setTimeout(swap, COMPLIMENT_FADE_MS + 50);
 }
 
 function pickRandom(celebrate = false) {
