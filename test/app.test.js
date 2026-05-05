@@ -433,6 +433,96 @@ test('DOMContentLoaded keeps the random pastel visible with a dark system prefer
   cleanupGlobals();
 });
 
+test('triggerConfetti is a no-op when no canvas element exists', () => {
+  const document = createDocument();
+  global.document = document;
+
+  const app = loadApp();
+
+  assert.doesNotThrow(() => app.triggerConfetti());
+
+  delete global.document;
+});
+
+test('triggerConfetti draws particles on the canvas when present', () => {
+  const document = createDocument();
+  let clearCalls = 0;
+  let fillRectCalls = 0;
+  const ctx = {
+    setTransform() {},
+    clearRect() { clearCalls++; },
+    save() {},
+    restore() {},
+    translate() {},
+    rotate() {},
+    fillRect() { fillRectCalls++; },
+    set globalAlpha(_v) {},
+    set fillStyle(_v) {}
+  };
+  const canvas = createElement('canvas');
+  canvas.getContext = () => ctx;
+  canvas.clientWidth = 800;
+  canvas.clientHeight = 600;
+  const originalGetElementById = document.getElementById.bind(document);
+  document.getElementById = (id) => {
+    if (id === 'confetti-canvas') return canvas;
+    return originalGetElementById(id);
+  };
+
+  let rafCalls = 0;
+  let pendingStep = null;
+  global.document = document;
+  global.window = {
+    innerWidth: 800,
+    innerHeight: 600,
+    devicePixelRatio: 1,
+    matchMedia: () => ({ matches: false }),
+    requestAnimationFrame: (cb) => { rafCalls++; pendingStep = cb; },
+    addEventListener: () => {}
+  };
+
+  const app = loadApp();
+  app.triggerConfetti();
+
+  assert.ok(rafCalls >= 1, 'expected animation frame to be requested');
+  if (pendingStep) pendingStep(0);
+  assert.ok(clearCalls >= 1);
+  assert.ok(fillRectCalls > 0, 'expected particles to be drawn');
+
+  delete global.document;
+  delete global.window;
+});
+
+test('triggerConfetti respects prefers-reduced-motion', () => {
+  const document = createDocument();
+  let getContextCalls = 0;
+  const canvas = createElement('canvas');
+  canvas.getContext = () => { getContextCalls++; return {}; };
+  const originalGetElementById = document.getElementById.bind(document);
+  document.getElementById = (id) => {
+    if (id === 'confetti-canvas') return canvas;
+    return originalGetElementById(id);
+  };
+
+  global.document = document;
+  global.window = {
+    innerWidth: 800,
+    innerHeight: 600,
+    devicePixelRatio: 1,
+    matchMedia: (q) => ({ matches: q.includes('reduce') }),
+    requestAnimationFrame: () => {},
+    addEventListener: () => {}
+  };
+
+  const app = loadApp();
+  app.triggerConfetti();
+
+  assert.equal(getContextCalls, 0);
+
+  delete global.document;
+  delete global.window;
+});
+
 test('theme toggle restores theme-controlled backgrounds after the initial pastel load', () => {
   const originalRandom = Math.random;
   let calls = 0;
@@ -461,6 +551,54 @@ test('theme toggle restores theme-controlled backgrounds after the initial paste
     document.documentElement.style.getPropertyValue('--bg-body-current'),
     'var(--bg-body-pastel, var(--bg-body))'
   );
+
+  Math.random = originalRandom;
+  cleanupGlobals();
+});
+
+test('pickRandom does not trigger confetti when the same compliment is picked again', () => {
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+
+  const document = createDocument();
+  let getContextCalls = 0;
+  const ctx = {
+    setTransform() {}, clearRect() {}, save() {}, restore() {},
+    translate() {}, rotate() {}, fillRect() {},
+    set globalAlpha(_v) {}, set fillStyle(_v) {}
+  };
+  const canvas = createElement('canvas');
+  canvas.getContext = () => { getContextCalls++; return ctx; };
+  canvas.clientWidth = 800;
+  canvas.clientHeight = 600;
+  const originalGetElementById = document.getElementById.bind(document);
+  document.getElementById = (id) => {
+    if (id === 'confetti-canvas') return canvas;
+    return originalGetElementById(id);
+  };
+
+  global.document = document;
+  global.localStorage = createLocalStorage();
+  global.navigator = { clipboard: { writeText: () => Promise.resolve() } };
+  global.location = { href: 'https://example.com/' };
+  global.window = {
+    location: { search: '' },
+    innerWidth: 800,
+    innerHeight: 600,
+    devicePixelRatio: 1,
+    matchMedia: () => ({ matches: false }),
+    requestAnimationFrame: () => {},
+    addEventListener(type, handler) {
+      if (type === 'DOMContentLoaded') this.domReady = handler;
+    }
+  };
+
+  loadApp();
+  global.window.domReady();
+
+  document.getElementById('new-compliment-btn').listeners.click[0]();
+
+  assert.equal(getContextCalls, 0, 'confetti must not fire when the new pick repeats the current compliment');
 
   Math.random = originalRandom;
   cleanupGlobals();
