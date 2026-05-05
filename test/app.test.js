@@ -718,6 +718,66 @@ test('compliment history preserves consecutive duplicates in newest-first order'
   cleanupGlobals();
 });
 
+test('setComplimentText fades out, swaps text, and fades in via requestAnimationFrame', () => {
+  const document = createDocument();
+  global.document = document;
+  global.localStorage = createLocalStorage();
+  global.sessionStorage = createSessionStorage();
+  global.navigator = { clipboard: { writeText: () => Promise.resolve() } };
+  global.location = { href: 'https://example.com/' };
+
+  const rafQueue = [];
+  global.window = {
+    matchMedia: () => ({ matches: false }),
+    requestAnimationFrame: (cb) => { rafQueue.push(cb); return rafQueue.length; },
+    addEventListener: () => {}
+  };
+
+  const app = loadApp();
+  const el = document.getElementById('compliment');
+  el.textContent = 'old text';
+
+  app.setComplimentText('new text');
+
+  // fade-out kicked in immediately, text not yet swapped
+  assert.equal(el.style.opacity, '0');
+  assert.equal(el.textContent, 'old text');
+
+  // first raf: swap text while still at opacity 0
+  rafQueue.shift()();
+  assert.equal(el.textContent, 'new text');
+  assert.equal(el.style.opacity, '0');
+
+  // second raf: fade back in
+  rafQueue.shift()();
+  assert.equal(el.style.opacity, '1');
+
+  cleanupGlobals();
+  delete global.window;
+});
+
+test('setComplimentText updates synchronously when prefers-reduced-motion is set', () => {
+  const document = createDocument();
+  global.document = document;
+  global.localStorage = createLocalStorage();
+  global.sessionStorage = createSessionStorage();
+  global.navigator = { clipboard: { writeText: () => Promise.resolve() } };
+  global.location = { href: 'https://example.com/' };
+  global.window = {
+    matchMedia: (q) => ({ matches: q.includes('reduce') }),
+    requestAnimationFrame: () => { throw new Error('raf must not be used when reduced motion is requested'); },
+    addEventListener: () => {}
+  };
+
+  const app = loadApp();
+  app.setComplimentText('hello');
+
+  assert.equal(document.getElementById('compliment').textContent, 'hello');
+
+  cleanupGlobals();
+  delete global.window;
+});
+
 test('compliment history is silently ignored when sessionStorage is unavailable', () => {
   const document = createDocument();
   global.document = document;

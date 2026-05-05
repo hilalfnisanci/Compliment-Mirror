@@ -110,12 +110,38 @@ function renderInteractiveView() {
   attachSpacebarShortcut();
 }
 
+function setComplimentText(text) {
+  if (typeof document === 'undefined') return;
+  const el = document.getElementById('compliment');
+  if (!el) return;
+
+  const win = typeof window !== 'undefined' ? window : null;
+  const raf = win && typeof win.requestAnimationFrame === 'function'
+    ? win.requestAnimationFrame.bind(win)
+    : null;
+  const reduceMotion = !!(win && win.matchMedia && win.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+  if (!raf || reduceMotion || !el.style) {
+    el.textContent = text;
+    if (el.style) el.style.opacity = '';
+    return;
+  }
+
+  el.style.opacity = '0';
+  raf(() => {
+    el.textContent = text;
+    raf(() => {
+      el.style.opacity = '1';
+    });
+  });
+}
+
 function pickRandom(celebrate = false) {
   const previousIndex = currentIndex;
   const next = Math.floor(Math.random() * COMPLIMENTS.length);
   currentIndex = next;
   const text = COMPLIMENTS[currentIndex];
-  document.getElementById('compliment').textContent = text;
+  setComplimentText(text);
   incrementViewCount();
   updateViewCountDisplay();
   recordComplimentInHistory(text);
@@ -242,14 +268,13 @@ function renderSharedView(params) {
   const name = params.get('to') || null;
 
   if (isNaN(index) || index < 0 || index >= COMPLIMENTS.length) {
-    document.getElementById('compliment').textContent =
-      "This link doesn't seem right — try generating a new compliment.";
+    setComplimentText("This link doesn't seem right — try generating a new compliment.");
     hideInteractiveControls();
     return;
   }
 
   const sharedText = COMPLIMENTS[index];
-  document.getElementById('compliment').textContent = sharedText;
+  setComplimentText(sharedText);
   incrementViewCount();
   updateViewCountDisplay();
   recordComplimentInHistory(sharedText);
@@ -403,6 +428,7 @@ if (typeof module !== 'undefined') {
     updateVisitorCountDisplay,
     shouldHandleSpacebarShortcut,
     pickRandom,
+    setComplimentText,
     renderInteractiveView,
     triggerConfetti,
     getComplimentHistory,
