@@ -718,6 +718,120 @@ test('compliment history preserves consecutive duplicates in newest-first order'
   cleanupGlobals();
 });
 
+test('setComplimentText defers the swap until after the fade-out transition completes', () => {
+  const document = createDocument();
+  global.document = document;
+  global.localStorage = createLocalStorage();
+  global.sessionStorage = createSessionStorage();
+  global.navigator = { clipboard: { writeText: () => Promise.resolve() } };
+  global.location = { href: 'https://example.com/' };
+
+  const timeouts = [];
+  global.window = {
+    matchMedia: () => ({ matches: false }),
+    setTimeout: (cb, delay) => { timeouts.push({ cb, delay }); return timeouts.length; },
+    addEventListener: () => {}
+  };
+
+  const app = loadApp();
+  const el = document.getElementById('compliment');
+  el.textContent = 'old text';
+
+  app.setComplimentText('new text');
+
+  // Fade-out begins immediately, but the text MUST still be the old value —
+  // swapping before opacity reaches 0 would cause a visible flash.
+  assert.equal(el.style.opacity, '0');
+  assert.equal(el.textContent, 'old text');
+
+  // A transitionend listener must be registered so the swap can be
+  // triggered by the actual end of the opacity transition.
+  assert.ok(el.listeners.transitionend && el.listeners.transitionend.length > 0,
+    'expected a transitionend listener to be registered on the compliment element');
+
+  // The fallback timeout must match the CSS fade duration (350ms ± a small
+  // safety margin) — never zero or a single animation frame.
+  assert.ok(timeouts.length > 0, 'expected a fallback setTimeout to be scheduled');
+  assert.ok(timeouts[0].delay >= 300 && timeouts[0].delay <= 500,
+    `fallback delay ${timeouts[0].delay}ms must be within 300–500ms (CSS fade is 350ms)`);
+
+  // Simulating the end of the opacity fade-out must atomically swap the text
+  // and trigger the fade-in by restoring opacity to 1.
+  el.listeners.transitionend[0]({ propertyName: 'opacity', target: el });
+  assert.equal(el.textContent, 'new text');
+  assert.equal(el.style.opacity, '1');
+
+  // Fallback timer firing later must be a no-op (idempotent swap).
+  timeouts[0].cb();
+  assert.equal(el.textContent, 'new text');
+  assert.equal(el.style.opacity, '1');
+
+  cleanupGlobals();
+  delete global.window;
+});
+
+test('setComplimentText falls back to a timer when transitionend never fires', () => {
+  const document = createDocument();
+  global.document = document;
+  global.localStorage = createLocalStorage();
+  global.sessionStorage = createSessionStorage();
+  global.navigator = { clipboard: { writeText: () => Promise.resolve() } };
+  global.location = { href: 'https://example.com/' };
+
+  const timeouts = [];
+  global.window = {
+    matchMedia: () => ({ matches: false }),
+    setTimeout: (cb) => { timeouts.push(cb); return timeouts.length; },
+    addEventListener: () => {}
+  };
+
+  const app = loadApp();
+  const el = document.getElementById('compliment');
+  el.textContent = 'old text';
+
+  app.setComplimentText('new text');
+
+  // Even before the fallback fires, the text must not have changed yet.
+  assert.equal(el.textContent, 'old text');
+  assert.equal(el.style.opacity, '0');
+
+  // Firing the fallback timer (transitionend never arrived) completes the swap.
+  assert.equal(timeouts.length, 1);
+  timeouts[0]();
+  assert.equal(el.textContent, 'new text');
+  assert.equal(el.style.opacity, '1');
+
+  cleanupGlobals();
+  delete global.window;
+});
+
+test('setComplimentText updates synchronously when prefers-reduced-motion is set', () => {
+  const document = createDocument();
+  global.document = document;
+  global.localStorage = createLocalStorage();
+  global.sessionStorage = createSessionStorage();
+  global.navigator = { clipboard: { writeText: () => Promise.resolve() } };
+  global.location = { href: 'https://example.com/' };
+  global.window = {
+    matchMedia: (q) => ({ matches: q.includes('reduce') }),
+    setTimeout: () => { throw new Error('timers must not be used when reduced motion is requested'); },
+    addEventListener: () => {}
+  };
+
+  const app = loadApp();
+  const el = document.getElementById('compliment');
+  el.textContent = 'old';
+  app.setComplimentText('hello');
+
+  // Synchronous swap, no fade scheduling, no transitionend listener.
+  assert.equal(el.textContent, 'hello');
+  assert.ok(!el.listeners.transitionend || el.listeners.transitionend.length === 0,
+    'no transitionend listener should be registered under reduced motion');
+
+  cleanupGlobals();
+  delete global.window;
+});
+
 test('compliment history is silently ignored when sessionStorage is unavailable', () => {
   const document = createDocument();
   global.document = document;
