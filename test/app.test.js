@@ -19,8 +19,31 @@ function createElement(tagName) {
     },
     setAttribute(name, value) {
       this.attributes[name] = value;
+    },
+    removeAttribute(name) {
+      delete this.attributes[name];
     }
   };
+}
+
+function createListElement() {
+  const el = createElement('ul');
+  el.children = [];
+  el.firstChild = null;
+  el.appendChild = function (child) {
+    this.children.push(child);
+    this.firstChild = this.children[0];
+    return child;
+  };
+  el.removeChild = function (child) {
+    this.children = this.children.filter(c => c !== child);
+    this.firstChild = this.children[0] || null;
+    return child;
+  };
+  el.removeAttribute = function (name) {
+    delete this.attributes[name];
+  };
+  return el;
 }
 
 function createDocument() {
@@ -33,7 +56,9 @@ function createDocument() {
     'recipient-name': createElement('input'),
     'view-count': createElement('p'),
     'spacebar-hint': createElement('p'),
-    'visitor-counter': createElement('p')
+    'visitor-counter': createElement('p'),
+    'compliment-history': createElement('section'),
+    'compliment-history-list': createListElement()
   };
 
   return {
@@ -64,6 +89,9 @@ function createDocument() {
     getElementById(id) {
       return elements[id] || null;
     },
+    createElement(tagName) {
+      return createElement(tagName);
+    },
     addEventListener(type, handler) {
       if (!this.listeners[type]) {
         this.listeners[type] = [];
@@ -86,9 +114,26 @@ function createDocument() {
   };
 }
 
+function createSessionStorage() {
+  const store = new Map();
+  return {
+    getItem(key) {
+      return store.has(key) ? store.get(key) : null;
+    },
+    setItem(key, value) {
+      store.set(key, String(value));
+    },
+    removeItem(key) {
+      store.delete(key);
+    }
+  };
+}
+
 function loadAppAndDispatchDomReady({ search = '', initialTheme = null } = {}) {
   const document = createDocument();
   const localStorage = createLocalStorage();
+  const sessionStorage = createSessionStorage();
+  global.sessionStorage = sessionStorage;
 
   if (initialTheme !== null) {
     document.documentElement.setAttribute('data-theme', initialTheme);
@@ -110,12 +155,13 @@ function loadAppAndDispatchDomReady({ search = '', initialTheme = null } = {}) {
   const app = loadApp();
   global.window.domReady();
 
-  return { app, document, localStorage };
+  return { app, document, localStorage, sessionStorage };
 }
 
 function cleanupGlobals() {
   delete global.document;
   delete global.localStorage;
+  delete global.sessionStorage;
   delete global.navigator;
   delete global.location;
   delete global.window;
@@ -599,6 +645,97 @@ test('pickRandom does not trigger confetti when the same compliment is picked ag
   document.getElementById('new-compliment-btn').listeners.click[0]();
 
   assert.equal(getContextCalls, 0, 'confetti must not fire when the new pick repeats the current compliment');
+
+  Math.random = originalRandom;
+  cleanupGlobals();
+});
+
+test('compliment history records picks in sessionStorage with newest first', () => {
+  const document = createDocument();
+  global.document = document;
+  global.localStorage = createLocalStorage();
+  global.sessionStorage = createSessionStorage();
+  global.navigator = { clipboard: { writeText: () => Promise.resolve() } };
+  global.location = { href: 'https://example.com/' };
+
+  const app = loadApp();
+
+  app.recordComplimentInHistory(app.COMPLIMENTS[0]);
+  app.recordComplimentInHistory(app.COMPLIMENTS[1]);
+  app.recordComplimentInHistory(app.COMPLIMENTS[2]);
+  app.renderComplimentHistory();
+
+  const stored = JSON.parse(global.sessionStorage.getItem('compliment_history'));
+  assert.deepEqual(stored, [app.COMPLIMENTS[2], app.COMPLIMENTS[1], app.COMPLIMENTS[0]]);
+
+  const list = document.getElementById('compliment-history-list');
+  assert.equal(list.children.length, 3);
+  assert.equal(list.children[0].textContent, app.COMPLIMENTS[2]);
+  assert.equal(list.children[2].textContent, app.COMPLIMENTS[0]);
+
+  const section = document.getElementById('compliment-history');
+  assert.equal('hidden' in section.attributes, false);
+
+  cleanupGlobals();
+});
+
+test('compliment history caps at 5 entries (newest first)', () => {
+  global.document = createDocument();
+  global.localStorage = createLocalStorage();
+  global.sessionStorage = createSessionStorage();
+  global.navigator = { clipboard: { writeText: () => Promise.resolve() } };
+  global.location = { href: 'https://example.com/' };
+
+  const app = loadApp();
+
+  for (let n = 1; n <= 7; n++) {
+    app.recordComplimentInHistory(`item-${n}`);
+  }
+
+  const stored = JSON.parse(global.sessionStorage.getItem('compliment_history'));
+  assert.equal(stored.length, 5);
+  assert.deepEqual(stored, ['item-7', 'item-6', 'item-5', 'item-4', 'item-3']);
+
+  cleanupGlobals();
+});
+
+test('compliment history dedupes consecutive duplicates', () => {
+  global.document = createDocument();
+  global.localStorage = createLocalStorage();
+  global.sessionStorage = createSessionStorage();
+  global.navigator = { clipboard: { writeText: () => Promise.resolve() } };
+  global.location = { href: 'https://example.com/' };
+
+  const app = loadApp();
+
+  app.recordComplimentInHistory('hello');
+  app.recordComplimentInHistory('hello');
+  app.recordComplimentInHistory('world');
+
+  const stored = JSON.parse(global.sessionStorage.getItem('compliment_history'));
+  assert.deepEqual(stored, ['world', 'hello']);
+
+  cleanupGlobals();
+});
+
+test('compliment history is silently ignored when sessionStorage is unavailable', () => {
+  const document = createDocument();
+  global.document = document;
+  global.localStorage = createLocalStorage();
+  global.navigator = { clipboard: { writeText: () => Promise.resolve() } };
+  global.location = { href: 'https://example.com/' };
+  global.window = {
+    location: { search: '' },
+    addEventListener(type, handler) {
+      if (type === 'DOMContentLoaded') this.domReady = handler;
+    }
+  };
+
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+
+  loadApp();
+  assert.doesNotThrow(() => global.window.domReady());
 
   Math.random = originalRandom;
   cleanupGlobals();

@@ -2,6 +2,8 @@ const VIEW_COUNT_KEY = 'compliment_view_count';
 const VISITOR_COUNT_KEY = 'visitor_count';
 const RANDOM_BODY_BACKGROUND_KEY = '--bg-body-pastel';
 const ACTIVE_BODY_BACKGROUND_KEY = '--bg-body-current';
+const COMPLIMENT_HISTORY_KEY = 'compliment_history';
+const COMPLIMENT_HISTORY_LIMIT = 5;
 
 // Do not reorder or delete entries — this breaks existing shared links.
 const COMPLIMENTS = [
@@ -112,11 +114,79 @@ function pickRandom(celebrate = false) {
   const previousIndex = currentIndex;
   const next = Math.floor(Math.random() * COMPLIMENTS.length);
   currentIndex = next;
-  document.getElementById('compliment').textContent = COMPLIMENTS[currentIndex];
+  const text = COMPLIMENTS[currentIndex];
+  document.getElementById('compliment').textContent = text;
   incrementViewCount();
   updateViewCountDisplay();
+  recordComplimentInHistory(text);
+  renderComplimentHistory();
   if (celebrate && next !== previousIndex) {
     triggerConfetti();
+  }
+}
+
+function getSessionStorage() {
+  try {
+    if (typeof sessionStorage !== 'undefined') return sessionStorage;
+  } catch (e) {
+    return null;
+  }
+  return null;
+}
+
+function getComplimentHistory() {
+  const store = getSessionStorage();
+  if (!store) return [];
+  try {
+    const raw = store.getItem(COMPLIMENT_HISTORY_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter(item => typeof item === 'string') : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function recordComplimentInHistory(text) {
+  const store = getSessionStorage();
+  if (!store || typeof text !== 'string') return;
+  const history = getComplimentHistory();
+  if (history[0] === text) return;
+  history.unshift(text);
+  if (history.length > COMPLIMENT_HISTORY_LIMIT) {
+    history.length = COMPLIMENT_HISTORY_LIMIT;
+  }
+  try {
+    store.setItem(COMPLIMENT_HISTORY_KEY, JSON.stringify(history));
+  } catch (e) {
+    // ignore quota / serialization failures
+  }
+}
+
+function renderComplimentHistory() {
+  if (typeof document === 'undefined') return;
+  const list = document.getElementById('compliment-history-list');
+  const section = document.getElementById('compliment-history');
+  if (!list) return;
+  const history = getComplimentHistory();
+
+  while (list.firstChild) {
+    list.removeChild(list.firstChild);
+  }
+
+  for (const text of history) {
+    const item = document.createElement('li');
+    item.className = 'compliment-history-item';
+    item.textContent = text;
+    list.appendChild(item);
+  }
+
+  if (section) {
+    if (history.length === 0) {
+      section.setAttribute('hidden', '');
+    } else {
+      section.removeAttribute('hidden');
+    }
   }
 }
 
@@ -179,9 +249,12 @@ function renderSharedView(params) {
     return;
   }
 
-  document.getElementById('compliment').textContent = COMPLIMENTS[index];
+  const sharedText = COMPLIMENTS[index];
+  document.getElementById('compliment').textContent = sharedText;
   incrementViewCount();
   updateViewCountDisplay();
+  recordComplimentInHistory(sharedText);
+  renderComplimentHistory();
 
   if (name) {
     const header = document.createElement('p');
@@ -333,6 +406,9 @@ if (typeof module !== 'undefined') {
     pickRandom,
     renderInteractiveView,
     triggerConfetti,
+    getComplimentHistory,
+    recordComplimentInHistory,
+    renderComplimentHistory,
     COMPLIMENTS
   };
 }
