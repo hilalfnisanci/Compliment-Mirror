@@ -85,6 +85,41 @@ function createDocument() {
   };
 }
 
+function loadAppAndDispatchDomReady({ search = '', initialTheme = null } = {}) {
+  const document = createDocument();
+  const localStorage = createLocalStorage();
+
+  if (initialTheme !== null) {
+    document.documentElement.setAttribute('data-theme', initialTheme);
+  }
+
+  global.document = document;
+  global.localStorage = localStorage;
+  global.navigator = { clipboard: { writeText: () => Promise.resolve() } };
+  global.location = { href: 'https://example.com/' };
+  global.window = {
+    location: { search },
+    addEventListener(type, handler) {
+      if (type === 'DOMContentLoaded') {
+        this.domReady = handler;
+      }
+    }
+  };
+
+  const app = loadApp();
+  global.window.domReady();
+
+  return { app, document, localStorage };
+}
+
+function cleanupGlobals() {
+  delete global.document;
+  delete global.localStorage;
+  delete global.navigator;
+  delete global.location;
+  delete global.window;
+}
+
 function createLocalStorage() {
   const store = new Map();
   return {
@@ -263,34 +298,18 @@ test('generateRandomPastelColor returns a predictable pastel hsl value', () => {
 });
 
 test('DOMContentLoaded applies a random background color', () => {
-  const document = createDocument();
-  const localStorage = createLocalStorage();
-
-  global.document = document;
-  global.localStorage = localStorage;
-  global.navigator = { clipboard: { writeText: () => Promise.resolve() } };
-  global.location = { href: 'https://example.com/' };
-  global.window = {
-    location: { search: '' },
-    addEventListener(type, handler) {
-      if (type === 'DOMContentLoaded') {
-        this.domReady = handler;
-      }
-    }
-  };
-
   const originalRandom = Math.random;
   let calls = 0;
   const values = [0.5, 0.25, 0.75, 0];
   Math.random = () => values[calls++];
 
-  const app = loadApp();
-  global.window.domReady();
+  const { app, document } = loadAppAndDispatchDomReady();
 
   assert.equal(
     document.documentElement.style.getPropertyValue('--bg-body-pastel'),
     'hsl(180 69% 91%)'
   );
+  assert.equal(document.body.style.backgroundColor, 'hsl(180 69% 91%)');
   assert.equal(
     document.documentElement.style.getPropertyValue('--bg-body-current'),
     'var(--bg-body-pastel, var(--bg-body))'
@@ -298,43 +317,83 @@ test('DOMContentLoaded applies a random background color', () => {
   assert.equal(document.getElementById('compliment').textContent, app.COMPLIMENTS[0]);
 
   Math.random = originalRandom;
-  delete global.document;
-  delete global.localStorage;
-  delete global.navigator;
-  delete global.location;
-  delete global.window;
+  cleanupGlobals();
 });
 
-test('theme toggle preserves the pastel color for light mode and restores theme background for dark mode', () => {
-  const document = createDocument();
-  const localStorage = createLocalStorage();
-
-  global.document = document;
-  global.localStorage = localStorage;
-  global.navigator = { clipboard: { writeText: () => Promise.resolve() } };
-  global.location = { href: 'https://example.com/' };
-  global.window = {
-    location: { search: '' },
-    addEventListener(type, handler) {
-      if (type === 'DOMContentLoaded') {
-        this.domReady = handler;
-      }
-    }
-  };
-
+test('DOMContentLoaded keeps the random pastel visible with no saved preference in light mode', () => {
   const originalRandom = Math.random;
   let calls = 0;
   const values = [0.5, 0.25, 0.75, 0];
   Math.random = () => values[calls++];
 
-  loadApp();
-  global.window.domReady();
+  const { document } = loadAppAndDispatchDomReady();
+
+  assert.equal(document.documentElement.getAttribute('data-theme'), null);
+  assert.equal(document.body.style.backgroundColor, 'hsl(180 69% 91%)');
+
+  Math.random = originalRandom;
+  cleanupGlobals();
+});
+
+test('DOMContentLoaded keeps the random pastel visible with a saved light theme', () => {
+  const originalRandom = Math.random;
+  let calls = 0;
+  const values = [0.5, 0.25, 0.75, 0];
+  Math.random = () => values[calls++];
+
+  const { document } = loadAppAndDispatchDomReady({ initialTheme: 'light' });
+
+  assert.equal(document.documentElement.getAttribute('data-theme'), 'light');
+  assert.equal(document.body.style.backgroundColor, 'hsl(180 69% 91%)');
+
+  Math.random = originalRandom;
+  cleanupGlobals();
+});
+
+test('DOMContentLoaded keeps the random pastel visible with a saved dark theme', () => {
+  const originalRandom = Math.random;
+  let calls = 0;
+  const values = [0.5, 0.25, 0.75, 0];
+  Math.random = () => values[calls++];
+
+  const { document } = loadAppAndDispatchDomReady({ initialTheme: 'dark' });
+
+  assert.equal(document.documentElement.getAttribute('data-theme'), 'dark');
+  assert.equal(document.body.style.backgroundColor, 'hsl(180 69% 91%)');
+
+  Math.random = originalRandom;
+  cleanupGlobals();
+});
+
+test('DOMContentLoaded keeps the random pastel visible with a dark system preference and no saved theme', () => {
+  const originalRandom = Math.random;
+  let calls = 0;
+  const values = [0.5, 0.25, 0.75, 0];
+  Math.random = () => values[calls++];
+
+  const { document } = loadAppAndDispatchDomReady({ initialTheme: 'dark' });
+
+  assert.equal(document.documentElement.getAttribute('data-theme'), 'dark');
+  assert.equal(document.body.style.backgroundColor, 'hsl(180 69% 91%)');
+
+  Math.random = originalRandom;
+  cleanupGlobals();
+});
+
+test('theme toggle restores theme-controlled backgrounds after the initial pastel load', () => {
+  const originalRandom = Math.random;
+  let calls = 0;
+  const values = [0.5, 0.25, 0.75, 0];
+  Math.random = () => values[calls++];
+
+  const { document, localStorage } = loadAppAndDispatchDomReady();
 
   const toggle = document.getElementById('theme-toggle');
   toggle.listeners.click[0]();
 
   assert.equal(document.documentElement.getAttribute('data-theme'), 'dark');
   assert.equal(localStorage.getItem('theme'), 'dark');
+  assert.equal(document.body.style.backgroundColor, '');
   assert.equal(
     document.documentElement.style.getPropertyValue('--bg-body-current'),
     'var(--bg-body)'
@@ -344,15 +403,12 @@ test('theme toggle preserves the pastel color for light mode and restores theme 
 
   assert.equal(document.documentElement.getAttribute('data-theme'), 'light');
   assert.equal(localStorage.getItem('theme'), 'light');
+  assert.equal(document.body.style.backgroundColor, '');
   assert.equal(
     document.documentElement.style.getPropertyValue('--bg-body-current'),
     'var(--bg-body-pastel, var(--bg-body))'
   );
 
   Math.random = originalRandom;
-  delete global.document;
-  delete global.localStorage;
-  delete global.navigator;
-  delete global.location;
-  delete global.window;
+  cleanupGlobals();
 });

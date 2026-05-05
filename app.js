@@ -55,19 +55,24 @@ function generateRandomPastelColor() {
 }
 
 function applyRandomBackgroundColor(doc = document) {
-  if (!doc || !doc.documentElement || !doc.documentElement.style) {
+  if (!doc || !doc.documentElement || !doc.documentElement.style || !doc.body || !doc.body.style) {
     return null;
   }
 
   const color = generateRandomPastelColor();
   doc.documentElement.style.setProperty(RANDOM_BODY_BACKGROUND_KEY, color);
   syncBackgroundColor(doc);
+  doc.body.style.backgroundColor = color;
   return color;
 }
 
 function syncBackgroundColor(doc = document) {
   if (!doc || !doc.documentElement || !doc.documentElement.style) {
     return;
+  }
+
+  if (doc.body && doc.body.style) {
+    doc.body.style.backgroundColor = '';
   }
 
   const theme = doc.documentElement.getAttribute('data-theme');
