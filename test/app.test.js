@@ -32,7 +32,8 @@ function createDocument() {
     'share-feedback': createElement('p'),
     'recipient-name': createElement('input'),
     'view-count': createElement('p'),
-    'spacebar-hint': createElement('p')
+    'spacebar-hint': createElement('p'),
+    'visitor-counter': createElement('p')
   };
 
   return {
@@ -136,6 +137,58 @@ function loadApp() {
   delete require.cache[require.resolve('../app.js')];
   return require('../app.js');
 }
+
+test('visitor counter increments once per page load and renders message', () => {
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+
+  const { document, localStorage } = loadAppAndDispatchDomReady();
+
+  assert.equal(localStorage.getItem('visitor_count'), '1');
+  assert.equal(
+    document.getElementById('visitor-counter').textContent,
+    "You've visited 1 time"
+  );
+
+  Math.random = originalRandom;
+  cleanupGlobals();
+});
+
+test('visitor counter pluralizes correctly on subsequent visits', () => {
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+
+  let result = loadAppAndDispatchDomReady();
+  const store = result.localStorage;
+  cleanupGlobals();
+
+  // Simulate a second page load with the same persisted store.
+  const document = createDocument();
+  global.document = document;
+  global.localStorage = store;
+  global.navigator = { clipboard: { writeText: () => Promise.resolve() } };
+  global.location = { href: 'https://example.com/' };
+  global.window = {
+    location: { search: '' },
+    addEventListener(type, handler) {
+      if (type === 'DOMContentLoaded') {
+        this.domReady = handler;
+      }
+    }
+  };
+
+  loadApp();
+  global.window.domReady();
+
+  assert.equal(store.getItem('visitor_count'), '2');
+  assert.equal(
+    document.getElementById('visitor-counter').textContent,
+    "You've visited 2 times"
+  );
+
+  Math.random = originalRandom;
+  cleanupGlobals();
+});
 
 test('spacebar generates a new compliment in interactive mode', () => {
   const document = createDocument();
