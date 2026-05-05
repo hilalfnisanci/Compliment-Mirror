@@ -555,3 +555,51 @@ test('theme toggle restores theme-controlled backgrounds after the initial paste
   Math.random = originalRandom;
   cleanupGlobals();
 });
+
+test('pickRandom does not trigger confetti when the same compliment is picked again', () => {
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+
+  const document = createDocument();
+  let getContextCalls = 0;
+  const ctx = {
+    setTransform() {}, clearRect() {}, save() {}, restore() {},
+    translate() {}, rotate() {}, fillRect() {},
+    set globalAlpha(_v) {}, set fillStyle(_v) {}
+  };
+  const canvas = createElement('canvas');
+  canvas.getContext = () => { getContextCalls++; return ctx; };
+  canvas.clientWidth = 800;
+  canvas.clientHeight = 600;
+  const originalGetElementById = document.getElementById.bind(document);
+  document.getElementById = (id) => {
+    if (id === 'confetti-canvas') return canvas;
+    return originalGetElementById(id);
+  };
+
+  global.document = document;
+  global.localStorage = createLocalStorage();
+  global.navigator = { clipboard: { writeText: () => Promise.resolve() } };
+  global.location = { href: 'https://example.com/' };
+  global.window = {
+    location: { search: '' },
+    innerWidth: 800,
+    innerHeight: 600,
+    devicePixelRatio: 1,
+    matchMedia: () => ({ matches: false }),
+    requestAnimationFrame: () => {},
+    addEventListener(type, handler) {
+      if (type === 'DOMContentLoaded') this.domReady = handler;
+    }
+  };
+
+  loadApp();
+  global.window.domReady();
+
+  document.getElementById('new-compliment-btn').listeners.click[0]();
+
+  assert.equal(getContextCalls, 0, 'confetti must not fire when the new pick repeats the current compliment');
+
+  Math.random = originalRandom;
+  cleanupGlobals();
+});

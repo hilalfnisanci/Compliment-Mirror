@@ -109,12 +109,13 @@ function renderInteractiveView() {
 }
 
 function pickRandom(celebrate = false) {
+  const previousIndex = currentIndex;
   const next = Math.floor(Math.random() * COMPLIMENTS.length);
   currentIndex = next;
   document.getElementById('compliment').textContent = COMPLIMENTS[currentIndex];
   incrementViewCount();
   updateViewCountDisplay();
-  if (celebrate) {
+  if (celebrate && next !== previousIndex) {
     triggerConfetti();
   }
 }
