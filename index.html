@@ -35,33 +35,35 @@
       <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
     </svg>
   </button>
-  <div class="container">
-    <h1>Compliment Mirror</h1>
-    <p class="subtitle">A kind word, just for you.</p>
+  <div class="page-layout">
+    <div class="container">
+      <h1>Compliment Mirror</h1>
+      <p class="subtitle">A kind word, just for you.</p>
 
-    <div class="compliment-box">
-      <p class="compliment-text" id="compliment">Your compliment will appear here.</p>
+      <div class="compliment-box">
+        <p class="compliment-text" id="compliment">Your compliment will appear here.</p>
+      </div>
+
+      <p class="view-count" id="view-count"></p>
+
+      <button class="btn" id="new-compliment-btn" type="button">New Compliment</button>
+      <p class="spacebar-hint" id="spacebar-hint">Tip: press the spacebar for a new compliment.</p>
+      <input
+        type="text"
+        id="recipient-name"
+        placeholder="Add a name (optional)"
+        maxlength="60"
+        autocomplete="off"
+      />
+      <button class="btn btn-secondary" id="share-btn" type="button">Share this compliment</button>
+      <p class="share-feedback" id="share-feedback" aria-live="polite"></p>
+      <p class="visitor-counter" id="visitor-counter"></p>
     </div>
 
-    <section class="compliment-history" id="compliment-history" hidden aria-label="Recent compliments">
+    <aside class="compliment-history" id="compliment-history" hidden aria-label="Recent compliments">
       <h2 class="compliment-history-title">Recent compliments</h2>
       <ul class="compliment-history-list" id="compliment-history-list"></ul>
-    </section>
-
-    <p class="view-count" id="view-count"></p>
-
-    <button class="btn" id="new-compliment-btn" type="button">New Compliment</button>
-    <p class="spacebar-hint" id="spacebar-hint">Tip: press the spacebar for a new compliment.</p>
-    <input
-      type="text"
-      id="recipient-name"
-      placeholder="Add a name (optional)"
-      maxlength="60"
-      autocomplete="off"
-    />
-    <button class="btn btn-secondary" id="share-btn" type="button">Share this compliment</button>
-    <p class="share-feedback" id="share-feedback" aria-live="polite"></p>
-    <p class="visitor-counter" id="visitor-counter"></p>
+    </aside>
   </div>
   <canvas class="confetti-canvas" id="confetti-canvas" aria-hidden="true"></canvas>
 </body>

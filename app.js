@@ -181,6 +181,16 @@ function getSessionStorage() {
   return null;
 }
 
+function formatRelativeTime(timestamp) {
+  const diffMs = Date.now() - timestamp;
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffSec < 60) return 'Just now';
+  if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? '' : 's'} ago`;
+  return `${diffHour} hour${diffHour === 1 ? '' : 's'} ago`;
+}
+
 function getComplimentHistory() {
   const store = getSessionStorage();
   if (!store) return [];
@@ -188,7 +198,12 @@ function getComplimentHistory() {
     const raw = store.getItem(COMPLIMENT_HISTORY_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter(item => typeof item === 'string') : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(item => {
+      if (typeof item === 'string') return { text: item, timestamp: Date.now() };
+      if (item && typeof item.text === 'string' && typeof item.timestamp === 'number') return item;
+      return null;
+    }).filter(Boolean);
   } catch (e) {
     return [];
   }
@@ -198,7 +213,7 @@ function recordComplimentInHistory(text) {
   const store = getSessionStorage();
   if (!store || typeof text !== 'string') return;
   const history = getComplimentHistory();
-  history.unshift(text);
+  history.unshift({ text, timestamp: Date.now() });
   if (history.length > COMPLIMENT_HISTORY_LIMIT) {
     history.length = COMPLIMENT_HISTORY_LIMIT;
   }
@@ -220,10 +235,20 @@ function renderComplimentHistory() {
     list.removeChild(list.firstChild);
   }
 
-  for (const text of history) {
+  for (const entry of history) {
     const item = document.createElement('li');
     item.className = 'compliment-history-item';
-    item.textContent = text;
+
+    const textEl = document.createElement('span');
+    textEl.className = 'compliment-history-text';
+    textEl.textContent = entry.text;
+
+    const timeEl = document.createElement('span');
+    timeEl.className = 'compliment-history-time';
+    timeEl.textContent = formatRelativeTime(entry.timestamp);
+
+    item.appendChild(textEl);
+    item.appendChild(timeEl);
     list.appendChild(item);
   }
 
@@ -452,6 +477,7 @@ if (typeof module !== 'undefined') {
     setComplimentText,
     renderInteractiveView,
     triggerConfetti,
+    formatRelativeTime,
     getComplimentHistory,
     recordComplimentInHistory,
     renderComplimentHistory,
