@@ -2,12 +2,14 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 function createElement(tagName) {
-  return {
+  const el = {
     tagName: tagName.toUpperCase(),
     textContent: '',
     value: '',
     style: {},
     attributes: {},
+    children: [],
+    firstChild: null,
     isContentEditable: false,
     listeners: {},
     addEventListener(type, handler) {
@@ -17,13 +19,28 @@ function createElement(tagName) {
 
       this.listeners[type].push(handler);
     },
+    removeEventListener(type, handler) {
+      if (!this.listeners[type]) return;
+      this.listeners[type] = this.listeners[type].filter(h => h !== handler);
+    },
     setAttribute(name, value) {
       this.attributes[name] = value;
     },
     removeAttribute(name) {
       delete this.attributes[name];
+    },
+    appendChild(child) {
+      this.children.push(child);
+      this.firstChild = this.children[0];
+      return child;
+    },
+    removeChild(child) {
+      this.children = this.children.filter(c => c !== child);
+      this.firstChild = this.children[0] || null;
+      return child;
     }
   };
+  return el;
 }
 
 function createListElement() {
@@ -666,12 +683,17 @@ test('compliment history records picks in sessionStorage with newest first', () 
   app.renderComplimentHistory();
 
   const stored = JSON.parse(global.sessionStorage.getItem('compliment_history'));
-  assert.deepEqual(stored, [app.COMPLIMENTS[2], app.COMPLIMENTS[1], app.COMPLIMENTS[0]]);
+  assert.equal(stored.length, 3);
+  assert.equal(stored[0].text, app.COMPLIMENTS[2]);
+  assert.equal(stored[1].text, app.COMPLIMENTS[1]);
+  assert.equal(stored[2].text, app.COMPLIMENTS[0]);
+  assert.ok(typeof stored[0].timestamp === 'number');
 
   const list = document.getElementById('compliment-history-list');
   assert.equal(list.children.length, 3);
-  assert.equal(list.children[0].textContent, app.COMPLIMENTS[2]);
-  assert.equal(list.children[2].textContent, app.COMPLIMENTS[0]);
+  // Each li has a text span (children[0]) and a time span (children[1])
+  assert.equal(list.children[0].children[0].textContent, app.COMPLIMENTS[2]);
+  assert.equal(list.children[2].children[0].textContent, app.COMPLIMENTS[0]);
 
   const section = document.getElementById('compliment-history');
   assert.equal('hidden' in section.attributes, false);
@@ -694,7 +716,11 @@ test('compliment history caps at 5 entries (newest first)', () => {
 
   const stored = JSON.parse(global.sessionStorage.getItem('compliment_history'));
   assert.equal(stored.length, 5);
-  assert.deepEqual(stored, ['item-7', 'item-6', 'item-5', 'item-4', 'item-3']);
+  assert.equal(stored[0].text, 'item-7');
+  assert.equal(stored[1].text, 'item-6');
+  assert.equal(stored[2].text, 'item-5');
+  assert.equal(stored[3].text, 'item-4');
+  assert.equal(stored[4].text, 'item-3');
 
   cleanupGlobals();
 });
@@ -713,7 +739,9 @@ test('compliment history preserves consecutive duplicates in newest-first order'
   app.recordComplimentInHistory('world');
 
   const stored = JSON.parse(global.sessionStorage.getItem('compliment_history'));
-  assert.deepEqual(stored, ['world', 'hello', 'hello']);
+  assert.equal(stored[0].text, 'world');
+  assert.equal(stored[1].text, 'hello');
+  assert.equal(stored[2].text, 'hello');
 
   cleanupGlobals();
 });
@@ -852,5 +880,53 @@ test('compliment history is silently ignored when sessionStorage is unavailable'
   assert.doesNotThrow(() => global.window.domReady());
 
   Math.random = originalRandom;
+  cleanupGlobals();
+});
+
+test('formatRelativeTime returns "Just now" for timestamps within the last minute', () => {
+  const app = loadApp();
+  const now = Date.now();
+  assert.equal(app.formatRelativeTime(now), 'Just now');
+  assert.equal(app.formatRelativeTime(now - 30000), 'Just now');
+  assert.equal(app.formatRelativeTime(now - 59000), 'Just now');
+});
+
+test('formatRelativeTime returns singular and plural minutes ago', () => {
+  const app = loadApp();
+  const now = Date.now();
+  assert.equal(app.formatRelativeTime(now - 60000), '1 minute ago');
+  assert.equal(app.formatRelativeTime(now - 120000), '2 minutes ago');
+  assert.equal(app.formatRelativeTime(now - 3599000), '59 minutes ago');
+});
+
+test('formatRelativeTime returns singular and plural hours ago', () => {
+  const app = loadApp();
+  const now = Date.now();
+  assert.equal(app.formatRelativeTime(now - 3600000), '1 hour ago');
+  assert.equal(app.formatRelativeTime(now - 7200000), '2 hours ago');
+});
+
+test('compliment history renders timestamps alongside text', () => {
+  const document = createDocument();
+  global.document = document;
+  global.localStorage = createLocalStorage();
+  global.sessionStorage = createSessionStorage();
+  global.navigator = { clipboard: { writeText: () => Promise.resolve() } };
+  global.location = { href: 'https://example.com/' };
+
+  const app = loadApp();
+  app.recordComplimentInHistory('hello world');
+  app.renderComplimentHistory();
+
+  const list = document.getElementById('compliment-history-list');
+  assert.equal(list.children.length, 1);
+
+  const li = list.children[0];
+  assert.equal(li.children[0].textContent, 'hello world');
+  assert.equal(li.children[0].className, 'compliment-history-text');
+  assert.equal(li.children[1].className, 'compliment-history-time');
+  // Timestamp text should be non-empty (e.g. "Just now")
+  assert.ok(li.children[1].textContent.length > 0);
+
   cleanupGlobals();
 });

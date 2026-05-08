@@ -47,9 +47,20 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+.page-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  grid-template-areas: "sidebar main";
+  gap: 2rem;
+  max-width: 900px;
+  width: 100%;
+  align-items: start;
+  padding: 1rem;
+}
+
 .container {
+  grid-area: main;
   text-align: center;
-  max-width: 560px;
   padding: 2rem;
 }
 
@@ -174,8 +185,16 @@ h1 {
 }
 
 .compliment-history {
-  margin-top: 2rem;
+  grid-area: sidebar;
   text-align: left;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1rem;
+  align-self: start;
+  position: sticky;
+  top: 1rem;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .compliment-history-title {
@@ -202,13 +221,39 @@ h1 {
   font-size: 0.875rem;
   font-style: italic;
   color: var(--color-subtle);
-  padding: 0.4rem 0.75rem;
+  padding: 0.4rem 0;
   border-bottom: 1px solid var(--border-color);
   transition: color 0.3s ease, border-color 0.3s ease;
 }
 
 .compliment-history-item:last-child {
   border-bottom: none;
+}
+
+.compliment-history-text {
+  display: block;
+}
+
+.compliment-history-time {
+  display: block;
+  font-size: 0.75rem;
+  font-style: normal;
+  color: var(--color-subtle);
+  opacity: 0.8;
+  margin-top: 0.125rem;
+  transition: color 0.3s ease;
+}
+
+@media (max-width: 767px) {
+  .page-layout {
+    grid-template-columns: 1fr;
+    grid-template-areas: "main" "sidebar";
+    padding: 0.5rem;
+  }
+
+  .compliment-history {
+    position: static;
+  }
 }
 
 .shared-view .container {
