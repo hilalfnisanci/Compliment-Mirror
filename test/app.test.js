@@ -619,9 +619,14 @@ test('theme toggle restores theme-controlled backgrounds after the initial paste
   cleanupGlobals();
 });
 
-test('pickRandom does not trigger confetti when the same compliment is picked again', () => {
+test('pickRandom triggers confetti when a new compliment is picked', () => {
   const originalRandom = Math.random;
-  Math.random = () => 0;
+  // First call (init): bg color (3 values: r,g,b each via random) + pick index 0
+  // Second call (button click): must differ from 0, so first attempt 0 collides → re-roll to 0.5 → different index
+  // Sequence: bg(0,0,0), init-pick(0), click-pick-collision(0), click-pick-ok(0.5)
+  const seq = [0, 0, 0, 0, 0, 0.5];
+  let si = 0;
+  Math.random = () => seq[si++] ?? 0;
 
   const document = createDocument();
   let getContextCalls = 0;
@@ -661,7 +666,7 @@ test('pickRandom does not trigger confetti when the same compliment is picked ag
 
   document.getElementById('new-compliment-btn').listeners.click[0]();
 
-  assert.equal(getContextCalls, 0, 'confetti must not fire when the new pick repeats the current compliment');
+  assert.ok(getContextCalls >= 1, 'confetti must fire when a new compliment is picked with celebrate=true');
 
   Math.random = originalRandom;
   cleanupGlobals();
@@ -928,5 +933,45 @@ test('compliment history renders timestamps alongside text', () => {
   // Timestamp text should be non-empty (e.g. "Just now")
   assert.ok(li.children[1].textContent.length > 0);
 
+  cleanupGlobals();
+});
+
+test('pickRandom never produces the same index on consecutive calls when array has multiple entries', () => {
+  const originalRandom = Math.random;
+  // bg color: 3 calls (hue, saturation, lightness), init pick: index 0
+  // first explicit call: returns 0 (collision) → re-rolls to 0.5 → different index
+  const seq = [0, 0, 0, 0, 0, 0.5];
+  let si = 0;
+  Math.random = () => seq[si++] ?? 0.5;
+
+  const document = createDocument();
+  global.document = document;
+  global.localStorage = createLocalStorage();
+  global.navigator = { clipboard: { writeText: () => Promise.resolve() } };
+  global.location = { href: 'https://example.com/' };
+  global.sessionStorage = createSessionStorage();
+  global.window = {
+    location: { search: '' },
+    innerWidth: 800,
+    innerHeight: 600,
+    devicePixelRatio: 1,
+    matchMedia: () => ({ matches: false }),
+    requestAnimationFrame: () => {},
+    setTimeout: (fn) => fn(),
+    addEventListener(type, handler) {
+      if (type === 'DOMContentLoaded') this.domReady = handler;
+    }
+  };
+
+  const app = loadApp();
+  global.window.domReady();
+
+  const firstText = document.getElementById('compliment').textContent;
+  app.pickRandom();
+  const secondText = document.getElementById('compliment').textContent;
+
+  assert.notEqual(firstText, secondText, 'consecutive pickRandom calls must not produce the same compliment');
+
+  Math.random = originalRandom;
   cleanupGlobals();
 });

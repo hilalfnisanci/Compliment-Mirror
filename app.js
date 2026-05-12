@@ -159,7 +159,10 @@ function setComplimentText(text) {
 
 function pickRandom(celebrate = false) {
   const previousIndex = currentIndex;
-  const next = Math.floor(Math.random() * COMPLIMENTS.length);
+  let next;
+  do {
+    next = Math.floor(Math.random() * COMPLIMENTS.length);
+  } while (COMPLIMENTS.length > 1 && next === previousIndex);
   currentIndex = next;
   const text = COMPLIMENTS[currentIndex];
   setComplimentText(text);
