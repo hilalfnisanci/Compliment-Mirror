@@ -57,6 +57,41 @@
       />
       <button class="btn btn-secondary" id="share-btn" type="button">Share this compliment</button>
       <p class="share-feedback" id="share-feedback" aria-live="polite"></p>
+
+      <!-- Star rating -->
+      <div class="star-rating" id="star-rating" hidden aria-label="Rate this compliment">
+        <button class="star" type="button" data-value="1" aria-label="Rate 1 star" aria-pressed="false">★</button>
+        <button class="star" type="button" data-value="2" aria-label="Rate 2 stars" aria-pressed="false">★</button>
+        <button class="star" type="button" data-value="3" aria-label="Rate 3 stars" aria-pressed="false">★</button>
+        <button class="star" type="button" data-value="4" aria-label="Rate 4 stars" aria-pressed="false">★</button>
+        <button class="star" type="button" data-value="5" aria-label="Rate 5 stars" aria-pressed="false">★</button>
+      </div>
+
+      <!-- Add your own -->
+      <button class="btn btn-secondary" id="add-compliment-toggle" type="button">Add Your Own</button>
+      <div class="add-compliment-form" id="add-compliment-form" hidden>
+        <textarea
+          id="add-compliment-text"
+          placeholder="Write your own compliment..."
+          maxlength="200"
+          rows="2"
+          aria-label="New personal compliment text"
+        ></textarea>
+        <button class="btn btn-secondary" id="add-compliment-submit" type="button">Add to My Collection</button>
+      </div>
+
+      <!-- My Collection -->
+      <button class="btn btn-secondary" id="collection-toggle" type="button">My Collection</button>
+      <section class="collection-panel" id="collection-panel" hidden aria-label="My compliment collection">
+        <h2 class="collection-panel-title">My Collection</h2>
+        <div id="collection-list"></div>
+        <div class="collection-actions">
+          <button class="btn btn-secondary" id="export-btn" type="button">Export</button>
+          <button class="btn btn-secondary" id="import-btn" type="button">Import</button>
+          <input type="file" id="import-input" accept=".json" hidden aria-hidden="true">
+        </div>
+      </section>
+
       <p class="visitor-counter" id="visitor-counter"></p>
     </div>
 

@@ -319,3 +319,138 @@ h1 {
     display: none;
   }
 }
+
+/* Star rating */
+.star-rating {
+  display: flex;
+  justify-content: center;
+  gap: 0.25rem;
+  margin-top: 0.75rem;
+}
+
+.star {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--border-color);
+  cursor: pointer;
+  padding: 0.1rem 0.15rem;
+  line-height: 1;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.star:hover,
+.star.star-active {
+  color: #f5a623;
+}
+
+.star:hover {
+  transform: scale(1.2);
+}
+
+/* Add-your-own form */
+.add-compliment-form {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+#add-compliment-text {
+  width: 100%;
+  padding: 10px 14px;
+  font-family: Georgia, serif;
+  font-size: 1rem;
+  color: var(--color-input);
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  outline: none;
+  resize: vertical;
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+#add-compliment-text:focus {
+  border-color: var(--border-focus);
+}
+
+/* Collection panel */
+.collection-panel {
+  margin-top: 1rem;
+  text-align: left;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1rem;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.collection-panel-title {
+  font-size: 0.875rem;
+  font-weight: normal;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-subtle);
+  margin-bottom: 0.75rem;
+  transition: color 0.3s ease;
+}
+
+.collection-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border-color);
+  transition: border-color 0.3s ease;
+}
+
+.collection-item:last-child {
+  border-bottom: none;
+}
+
+.collection-item-text {
+  flex: 1;
+  font-style: italic;
+  color: var(--color-muted);
+  font-size: 0.9rem;
+  margin: 0;
+  transition: color 0.3s ease;
+}
+
+.collection-item-stars {
+  color: #f5a623;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.collection-item-delete {
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+  color: var(--color-subtle);
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.collection-item-delete:hover {
+  background: var(--bg-secondary-hover);
+  color: var(--color-text);
+}
+
+.collection-empty {
+  font-style: italic;
+  color: var(--color-subtle);
+  font-size: 0.875rem;
+  text-align: center;
+  padding: 0.5rem 0;
+  transition: color 0.3s ease;
+}
+
+.collection-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}

@@ -2,16 +2,34 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 function createElement(tagName) {
+  const classSet = new Set();
   const el = {
     tagName: tagName.toUpperCase(),
     textContent: '',
     value: '',
+    className: '',
+    dataset: {},
     style: {},
     attributes: {},
     children: [],
     firstChild: null,
     isContentEditable: false,
     listeners: {},
+    classList: {
+      add(cls) { classSet.add(cls); },
+      remove(cls) { classSet.delete(cls); },
+      contains(cls) { return classSet.has(cls); },
+      toggle(cls, force) {
+        if (force === undefined) {
+          if (classSet.has(cls)) classSet.delete(cls);
+          else classSet.add(cls);
+        } else if (force) {
+          classSet.add(cls);
+        } else {
+          classSet.delete(cls);
+        }
+      }
+    },
     addEventListener(type, handler) {
       if (!this.listeners[type]) {
         this.listeners[type] = [];
@@ -29,6 +47,9 @@ function createElement(tagName) {
     removeAttribute(name) {
       delete this.attributes[name];
     },
+    hasAttribute(name) {
+      return name in this.attributes;
+    },
     appendChild(child) {
       this.children.push(child);
       this.firstChild = this.children[0];
@@ -38,7 +59,17 @@ function createElement(tagName) {
       this.children = this.children.filter(c => c !== child);
       this.firstChild = this.children[0] || null;
       return child;
-    }
+    },
+    querySelectorAll(selector) {
+      if (selector.startsWith('.')) {
+        const cls = selector.slice(1);
+        return this.children.filter(c => c.className === cls);
+      }
+      return [];
+    },
+    closest() { return null; },
+    focus() {},
+    click() {},
   };
   return el;
 }
@@ -75,14 +106,40 @@ function createDocument() {
     'spacebar-hint': createElement('p'),
     'visitor-counter': createElement('p'),
     'compliment-history': createElement('section'),
-    'compliment-history-list': createListElement()
+    'compliment-history-list': createListElement(),
+    'star-rating': createElement('div'),
+    'add-compliment-toggle': createElement('button'),
+    'add-compliment-form': createElement('div'),
+    'add-compliment-text': createElement('textarea'),
+    'add-compliment-submit': createElement('button'),
+    'collection-toggle': createElement('button'),
+    'collection-panel': createElement('section'),
+    'collection-list': createElement('div'),
+    'export-btn': createElement('button'),
+    'import-btn': createElement('button'),
+    'import-input': createElement('input'),
   };
+
+  // Pre-populate star-rating with 5 star buttons so querySelectorAll('.star') works
+  for (let i = 1; i <= 5; i++) {
+    const star = createElement('button');
+    star.className = 'star';
+    star.dataset = { value: String(i) };
+    elements['star-rating'].appendChild(star);
+  }
+
+  // collection-panel starts hidden
+  elements['collection-panel'].attributes['hidden'] = '';
+  // add-compliment-form starts hidden
+  elements['add-compliment-form'].attributes['hidden'] = '';
 
   return {
     activeElement: null,
     body: {
       style: {},
-      classList: { add() {} }
+      classList: { add() {} },
+      appendChild() {},
+      removeChild() {}
     },
     listeners: {},
     documentElement: {
@@ -974,4 +1031,305 @@ test('pickRandom never produces the same index on consecutive calls when array h
 
   Math.random = originalRandom;
   cleanupGlobals();
+});
+
+// --- New tests for personal compliment collection ---
+
+test('getPersonalCompliments returns empty array when nothing stored', () => {
+  global.localStorage = createLocalStorage();
+  const app = loadApp();
+  assert.deepEqual(app.getPersonalCompliments(), []);
+  delete global.localStorage;
+});
+
+test('getPersonalCompliments returns empty array when localStorage unavailable', () => {
+  // No global.localStorage set
+  const app = loadApp();
+  assert.deepEqual(app.getPersonalCompliments(), []);
+});
+
+test('addPersonalCompliment persists a new entry with id, text, createdAt', () => {
+  global.localStorage = createLocalStorage();
+  const app = loadApp();
+
+  const before = Date.now();
+  app.addPersonalCompliment('You are amazing!');
+  const after = Date.now();
+
+  const stored = app.getPersonalCompliments();
+  assert.equal(stored.length, 1);
+  assert.equal(stored[0].text, 'You are amazing!');
+  assert.equal(typeof stored[0].id, 'string');
+  assert.ok(stored[0].createdAt >= before && stored[0].createdAt <= after);
+
+  delete global.localStorage;
+});
+
+test('addPersonalCompliment ignores blank strings', () => {
+  global.localStorage = createLocalStorage();
+  const app = loadApp();
+
+  app.addPersonalCompliment('');
+  app.addPersonalCompliment('   ');
+  app.addPersonalCompliment(null);
+
+  assert.deepEqual(app.getPersonalCompliments(), []);
+  delete global.localStorage;
+});
+
+test('getRatings returns empty object when nothing stored', () => {
+  global.localStorage = createLocalStorage();
+  const app = loadApp();
+  assert.deepEqual(app.getRatings(), {});
+  delete global.localStorage;
+});
+
+test('rateCurrentCompliment saves rating for the current compliment key', () => {
+  global.localStorage = createLocalStorage();
+  global.document = createDocument();
+  const app = loadApp();
+
+  // Simulate a compliment being displayed by calling pickRandom
+  Math.random = () => 0;
+  app.pickRandom();
+
+  app.rateCurrentCompliment(4);
+  const ratings = app.getRatings();
+  assert.equal(ratings['builtin_0'], 4);
+
+  delete global.localStorage;
+  delete global.document;
+});
+
+test('buildComplimentPool returns all built-ins with weight 1 when nothing rated', () => {
+  global.localStorage = createLocalStorage();
+  const app = loadApp();
+
+  const pool = app.buildComplimentPool();
+  assert.equal(pool.length, app.COMPLIMENTS.length);
+  for (const item of pool) {
+    assert.equal(item.weight, 1);
+    assert.ok(item.key.startsWith('builtin_'));
+  }
+
+  delete global.localStorage;
+});
+
+test('buildComplimentPool assigns higher weight to 5-star compliment', () => {
+  global.localStorage = createLocalStorage();
+  const app = loadApp();
+
+  app.saveRatings({ 'builtin_0': 5 });
+  const pool = app.buildComplimentPool();
+
+  const item0 = pool.find(p => p.key === 'builtin_0');
+  const item1 = pool.find(p => p.key === 'builtin_1');
+  assert.equal(item0.weight, 3);
+  assert.equal(item1.weight, 1);
+
+  delete global.localStorage;
+});
+
+test('buildComplimentPool includes personal compliments', () => {
+  global.localStorage = createLocalStorage();
+  const app = loadApp();
+
+  app.addPersonalCompliment('My custom compliment');
+  const pool = app.buildComplimentPool();
+
+  assert.equal(pool.length, app.COMPLIMENTS.length + 1);
+  const personal = pool.find(p => p.key.startsWith('personal_'));
+  assert.ok(personal);
+  assert.equal(personal.text, 'My custom compliment');
+  assert.equal(personal.weight, 1);
+
+  delete global.localStorage;
+});
+
+test('pickWeighted never returns excluded key when alternatives exist', () => {
+  const app = loadApp();
+  const pool = [
+    { key: 'a', text: 'A', weight: 1 },
+    { key: 'b', text: 'B', weight: 1 },
+    { key: 'c', text: 'C', weight: 1 }
+  ];
+
+  // Force Math.random to 0 — should pick first candidate (b, since a is excluded)
+  const orig = Math.random;
+  Math.random = () => 0;
+  const result = app.pickWeighted(pool, 'a');
+  assert.notEqual(result.key, 'a');
+  Math.random = orig;
+});
+
+test('pickWeighted returns excluded key when it is the only option', () => {
+  const app = loadApp();
+  const pool = [{ key: 'only', text: 'Only', weight: 1 }];
+
+  const orig = Math.random;
+  Math.random = () => 0;
+  const result = app.pickWeighted(pool, 'only');
+  assert.equal(result.key, 'only');
+  Math.random = orig;
+});
+
+test('deletePersonalCompliment removes entry and its rating', () => {
+  global.localStorage = createLocalStorage();
+  global.document = createDocument();
+  const app = loadApp();
+
+  app.addPersonalCompliment('To be deleted');
+  const stored = app.getPersonalCompliments();
+  assert.equal(stored.length, 1);
+  const id = stored[0].id;
+
+  // Give it a rating
+  const ratings = app.getRatings();
+  ratings[`personal_${id}`] = 3;
+  app.saveRatings(ratings);
+
+  app.deletePersonalCompliment(id);
+
+  assert.deepEqual(app.getPersonalCompliments(), []);
+  assert.equal(app.getRatings()[`personal_${id}`], undefined);
+
+  delete global.localStorage;
+  delete global.document;
+});
+
+test('validateImport accepts a well-formed export object', () => {
+  const app = loadApp();
+  const valid = {
+    version: 1,
+    exportedAt: '2026-05-15T15:00:00.000Z',
+    personalCompliments: [{ id: '123', text: 'hello', createdAt: 1716825600000 }],
+    ratings: { 'builtin_3': 5, 'personal_123': 3 }
+  };
+  assert.equal(app.validateImport(valid), true);
+});
+
+test('validateImport rejects wrong version, missing fields, non-integer ratings', () => {
+  const app = loadApp();
+
+  // Wrong version
+  assert.equal(app.validateImport({ version: 2, personalCompliments: [], ratings: {} }), false);
+
+  // Not an object
+  assert.equal(app.validateImport(null), false);
+  assert.equal(app.validateImport([]), false);
+
+  // Missing personalCompliments
+  assert.equal(app.validateImport({ version: 1, ratings: {} }), false);
+
+  // Missing ratings
+  assert.equal(app.validateImport({ version: 1, personalCompliments: [] }), false);
+
+  // Non-integer rating
+  assert.equal(app.validateImport({ version: 1, personalCompliments: [], ratings: { 'builtin_0': 2.5 } }), false);
+
+  // Rating out of range
+  assert.equal(app.validateImport({ version: 1, personalCompliments: [], ratings: { 'builtin_0': 6 } }), false);
+
+  // Personal compliment missing id
+  assert.equal(app.validateImport({
+    version: 1,
+    personalCompliments: [{ text: 'no id' }],
+    ratings: {}
+  }), false);
+});
+
+test('mergeCollection adds new personal compliments without duplicating by id', () => {
+  global.localStorage = createLocalStorage();
+  const app = loadApp();
+
+  app.addPersonalCompliment('Existing');
+  const existing = app.getPersonalCompliments();
+  const existingId = existing[0].id;
+
+  const importData = {
+    version: 1,
+    exportedAt: '2026-05-15T15:00:00.000Z',
+    personalCompliments: [
+      { id: existingId, text: 'Duplicate', createdAt: 0 },
+      { id: 'new-id-999', text: 'Brand new', createdAt: 0 }
+    ],
+    ratings: {}
+  };
+
+  app.mergeCollection(importData);
+  const result = app.getPersonalCompliments();
+
+  // Should have 2: original + the new one (duplicate skipped)
+  assert.equal(result.length, 2);
+  const texts = result.map(p => p.text);
+  assert.ok(texts.includes('Existing'));
+  assert.ok(texts.includes('Brand new'));
+  assert.ok(!texts.includes('Duplicate'));
+
+  delete global.localStorage;
+});
+
+test('mergeCollection gives priority to existing ratings on key conflict', () => {
+  global.localStorage = createLocalStorage();
+  const app = loadApp();
+
+  // Set an existing rating
+  app.saveRatings({ 'builtin_0': 5 });
+
+  const importData = {
+    version: 1,
+    exportedAt: '2026-05-15T15:00:00.000Z',
+    personalCompliments: [],
+    ratings: { 'builtin_0': 1, 'builtin_1': 4 }
+  };
+
+  app.mergeCollection(importData);
+  const ratings = app.getRatings();
+
+  // Existing rating wins on conflict
+  assert.equal(ratings['builtin_0'], 5);
+  // New rating is imported if no conflict
+  assert.equal(ratings['builtin_1'], 4);
+
+  delete global.localStorage;
+});
+
+test('renderCollectionPanel shows empty state when no personal compliments', () => {
+  global.localStorage = createLocalStorage();
+  global.document = createDocument();
+  const app = loadApp();
+
+  app.renderCollectionPanel();
+
+  const list = global.document.getElementById('collection-list');
+  assert.equal(list.children.length, 1);
+  assert.equal(list.children[0].className, 'collection-empty');
+  assert.ok(list.children[0].textContent.length > 0);
+
+  delete global.localStorage;
+  delete global.document;
+});
+
+test('renderCollectionPanel renders one item per personal compliment with delete button', () => {
+  global.localStorage = createLocalStorage();
+  global.document = createDocument();
+  const app = loadApp();
+
+  app.addPersonalCompliment('First compliment');
+  app.addPersonalCompliment('Second compliment');
+  app.renderCollectionPanel();
+
+  const list = global.document.getElementById('collection-list');
+  assert.equal(list.children.length, 2);
+
+  const firstItem = list.children[0];
+  // Each item has: p.collection-item-text, span.collection-item-stars, button.collection-item-delete
+  const textEl = firstItem.children.find(c => c.className === 'collection-item-text');
+  const deleteBtn = firstItem.children.find(c => c.className === 'collection-item-delete');
+  assert.ok(textEl, 'expected a text element in collection item');
+  assert.ok(deleteBtn, 'expected a delete button in collection item');
+  assert.equal(deleteBtn.textContent, 'Remove');
+
+  delete global.localStorage;
+  delete global.document;
 });
