@@ -4,6 +4,10 @@ const RANDOM_BODY_BACKGROUND_KEY = '--bg-body-pastel';
 const ACTIVE_BODY_BACKGROUND_KEY = '--bg-body-current';
 const COMPLIMENT_HISTORY_KEY = 'compliment_history';
 const COMPLIMENT_HISTORY_LIMIT = 5;
+const PERSONAL_COMPLIMENTS_KEY = 'personal_compliments';
+const COMPLIMENT_RATINGS_KEY   = 'compliment_ratings';
+const RATING_WEIGHTS = { 1: 0.5, 2: 0.75, 3: 1, 4: 2, 5: 3 };
+const DEFAULT_WEIGHT = 1;
 
 // Do not reorder or delete entries — this breaks existing shared links.
 const COMPLIMENTS = [
@@ -35,6 +39,7 @@ const COMPLIMENTS = [
 ];
 
 let currentIndex = null;
+let currentComplimentKey = null;
 let shortcutHandler = null;
 
 if (typeof window !== 'undefined') {
@@ -108,6 +113,10 @@ function renderInteractiveView() {
   document.getElementById('new-compliment-btn').addEventListener('click', () => pickRandom(true));
   document.getElementById('share-btn').addEventListener('click', handleShare);
   attachSpacebarShortcut();
+  attachStarRating();
+  attachAddComplimentForm();
+  attachCollectionToggle();
+  attachExportImport();
 }
 
 const COMPLIMENT_FADE_MS = 350;
@@ -158,19 +167,24 @@ function setComplimentText(text) {
 }
 
 function pickRandom(celebrate = false) {
-  const previousIndex = currentIndex;
-  let next;
-  do {
-    next = Math.floor(Math.random() * COMPLIMENTS.length);
-  } while (COMPLIMENTS.length > 1 && next === previousIndex);
-  currentIndex = next;
-  const text = COMPLIMENTS[currentIndex];
-  setComplimentText(text);
+  const pool = buildComplimentPool();
+  if (pool.length === 0) return;
+
+  const chosen = pickWeighted(pool, currentComplimentKey);
+  const previousKey = currentComplimentKey;
+  currentComplimentKey = chosen.key;
+
+  // Keep currentIndex in sync for built-in share links
+  currentIndex = (chosen.sourceIndex !== undefined) ? chosen.sourceIndex : null;
+
+  setComplimentText(chosen.text);
+  renderStarRating(getRatings()[chosen.key] || 0);
   incrementViewCount();
   updateViewCountDisplay();
-  recordComplimentInHistory(text);
+  recordComplimentInHistory(chosen.text);
   renderComplimentHistory();
-  if (celebrate && next !== previousIndex) {
+
+  if (celebrate && chosen.key !== previousKey) {
     triggerConfetti();
   }
 }
@@ -181,6 +195,13 @@ function getSessionStorage() {
   } catch (e) {
     return null;
   }
+  return null;
+}
+
+function getLocalStorageStore() {
+  try {
+    if (typeof localStorage !== 'undefined') return localStorage;
+  } catch (e) { return null; }
   return null;
 }
 
@@ -291,6 +312,10 @@ function updateVisitorCountDisplay() {
 }
 
 function handleShare() {
+  if (currentIndex === null) {
+    showFeedback("Personal compliments can't be shared via link — try copying the text directly.");
+    return;
+  }
   const name = document.getElementById('recipient-name').value.trim();
   const params = new URLSearchParams({ c: currentIndex });
   if (name) params.set('to', name);
@@ -341,11 +366,14 @@ function renderSharedView(params) {
 }
 
 function hideInteractiveControls() {
-  ['new-compliment-btn', 'spacebar-hint', 'recipient-name', 'share-btn', 'share-feedback']
-    .forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = 'none';
-    });
+  [
+    'new-compliment-btn', 'spacebar-hint', 'recipient-name', 'share-btn',
+    'share-feedback', 'star-rating', 'add-compliment-toggle',
+    'add-compliment-form', 'collection-toggle', 'collection-panel'
+  ].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
 }
 
 function attachSpacebarShortcut() {
@@ -468,6 +496,322 @@ function triggerConfetti() {
   raf(step);
 }
 
+// --- Personal compliment data access ---
+
+function getPersonalCompliments() {
+  const store = getLocalStorageStore();
+  if (!store) return [];
+  try {
+    const raw = store.getItem(PERSONAL_COMPLIMENTS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      p => p && typeof p.id === 'string' && typeof p.text === 'string'
+    );
+  } catch (e) { return []; }
+}
+
+function savePersonalCompliments(arr) {
+  const store = getLocalStorageStore();
+  if (!store) return;
+  try { store.setItem(PERSONAL_COMPLIMENTS_KEY, JSON.stringify(arr)); } catch (e) {}
+}
+
+function getRatings() {
+  const store = getLocalStorageStore();
+  if (!store) return {};
+  try {
+    const raw = store.getItem(COMPLIMENT_RATINGS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    return parsed;
+  } catch (e) { return {}; }
+}
+
+function saveRatings(obj) {
+  const store = getLocalStorageStore();
+  if (!store) return;
+  try { store.setItem(COMPLIMENT_RATINGS_KEY, JSON.stringify(obj)); } catch (e) {}
+}
+
+// --- Weighted pool selection ---
+
+function buildComplimentPool() {
+  const personal = getPersonalCompliments();
+  const ratings = getRatings();
+  const pool = [];
+
+  COMPLIMENTS.forEach((text, idx) => {
+    const key = `builtin_${idx}`;
+    const weight = RATING_WEIGHTS[ratings[key]] ?? DEFAULT_WEIGHT;
+    pool.push({ text, key, sourceIndex: idx, weight });
+  });
+
+  personal.forEach(item => {
+    const key = `personal_${item.id}`;
+    const weight = RATING_WEIGHTS[ratings[key]] ?? DEFAULT_WEIGHT;
+    pool.push({ text: item.text, key, id: item.id, weight });
+  });
+
+  return pool;
+}
+
+function pickWeighted(pool, excludeKey) {
+  let candidates = pool.filter(c => c.key !== excludeKey);
+  if (candidates.length === 0) candidates = pool;
+  const total = candidates.reduce((s, c) => s + c.weight, 0);
+  let rand = Math.random() * total;
+  for (const c of candidates) {
+    rand -= c.weight;
+    if (rand <= 0) return c;
+  }
+  return candidates[candidates.length - 1];
+}
+
+// --- Star rating ---
+
+function renderStarRating(currentRating) {
+  if (typeof document === 'undefined') return;
+  const container = document.getElementById('star-rating');
+  if (!container) return;
+  container.removeAttribute('hidden');
+  const stars = container.querySelectorAll('.star');
+  stars.forEach((star, i) => {
+    const filled = i < currentRating;
+    star.classList.toggle('star-active', filled);
+    star.setAttribute('aria-pressed', filled ? 'true' : 'false');
+  });
+}
+
+function attachStarRating() {
+  if (typeof document === 'undefined') return;
+  const container = document.getElementById('star-rating');
+  if (!container) return;
+  container.addEventListener('click', (e) => {
+    const star = e.target.closest('.star');
+    if (!star) return;
+    const value = parseInt(star.dataset.value, 10);
+    if (!isNaN(value) && currentComplimentKey) {
+      rateCurrentCompliment(value);
+    }
+  });
+}
+
+function rateCurrentCompliment(stars) {
+  if (!currentComplimentKey) return;
+  const ratings = getRatings();
+  ratings[currentComplimentKey] = stars;
+  saveRatings(ratings);
+  renderStarRating(stars);
+}
+
+// --- Personal compliment management ---
+
+function addPersonalCompliment(text) {
+  if (!text || typeof text !== 'string') return;
+  const trimmed = text.trim();
+  if (!trimmed) return;
+  const personal = getPersonalCompliments();
+  const id = String(Date.now());
+  personal.push({ id, text: trimmed, createdAt: Date.now() });
+  savePersonalCompliments(personal);
+}
+
+function deletePersonalCompliment(id) {
+  const personal = getPersonalCompliments().filter(p => p.id !== id);
+  savePersonalCompliments(personal);
+  const ratings = getRatings();
+  delete ratings[`personal_${id}`];
+  saveRatings(ratings);
+  renderCollectionPanel();
+}
+
+// --- Collection panel ---
+
+function renderCollectionPanel() {
+  if (typeof document === 'undefined') return;
+  const list = document.getElementById('collection-list');
+  if (!list) return;
+
+  while (list.firstChild) list.removeChild(list.firstChild);
+
+  const personal = getPersonalCompliments();
+
+  if (personal.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'collection-empty';
+    empty.textContent = "No personal compliments yet. Use 'Add Your Own' to get started.";
+    list.appendChild(empty);
+    return;
+  }
+
+  const ratings = getRatings();
+  personal.forEach(item => {
+    const key = `personal_${item.id}`;
+    const rating = ratings[key] || 0;
+
+    const entry = document.createElement('div');
+    entry.className = 'collection-item';
+
+    const textEl = document.createElement('p');
+    textEl.className = 'collection-item-text';
+    textEl.textContent = item.text;
+
+    const starsEl = document.createElement('span');
+    starsEl.className = 'collection-item-stars';
+    starsEl.textContent = rating ? '★'.repeat(rating) + '☆'.repeat(5 - rating) : 'Not rated';
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'collection-item-delete';
+    deleteBtn.type = 'button';
+    deleteBtn.textContent = 'Remove';
+    deleteBtn.addEventListener('click', () => deletePersonalCompliment(item.id));
+
+    entry.appendChild(textEl);
+    entry.appendChild(starsEl);
+    entry.appendChild(deleteBtn);
+    list.appendChild(entry);
+  });
+}
+
+function toggleCollectionPanel() {
+  if (typeof document === 'undefined') return;
+  const panel = document.getElementById('collection-panel');
+  if (!panel) return;
+  if (panel.hasAttribute('hidden')) {
+    renderCollectionPanel();
+    panel.removeAttribute('hidden');
+  } else {
+    panel.setAttribute('hidden', '');
+  }
+}
+
+// --- Export / import ---
+
+function exportCollection() {
+  const data = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    personalCompliments: getPersonalCompliments(),
+    ratings: getRatings()
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'my-compliments.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function validateImport(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return false;
+  if (data.version !== 1) return false;
+  if (!Array.isArray(data.personalCompliments)) return false;
+  if (!data.ratings || typeof data.ratings !== 'object' || Array.isArray(data.ratings)) return false;
+  for (const p of data.personalCompliments) {
+    if (!p || typeof p.id !== 'string' || typeof p.text !== 'string') return false;
+  }
+  for (const [, val] of Object.entries(data.ratings)) {
+    if (typeof val !== 'number' || val < 1 || val > 5 || !Number.isInteger(val)) return false;
+  }
+  return true;
+}
+
+function mergeCollection(data) {
+  const existing = getPersonalCompliments();
+  const existingIds = new Set(existing.map(p => p.id));
+  const incoming = data.personalCompliments.filter(p => !existingIds.has(p.id));
+  savePersonalCompliments([...existing, ...incoming]);
+
+  // Existing user ratings take priority over imported ratings on key conflict
+  const existingRatings = getRatings();
+  const merged = Object.assign({}, data.ratings, existingRatings);
+  saveRatings(merged);
+}
+
+function importCollection(file) {
+  if (typeof FileReader === 'undefined') {
+    showFeedback('File import is not supported in this browser.');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    let data;
+    try {
+      data = JSON.parse(e.target.result);
+    } catch {
+      showFeedback('Could not read the file — invalid JSON.');
+      return;
+    }
+    if (!validateImport(data)) {
+      showFeedback('Invalid collection file format.');
+      return;
+    }
+    mergeCollection(data);
+    renderCollectionPanel();
+    const count = data.personalCompliments.length;
+    showFeedback(`Imported ${count} personal compliment${count === 1 ? '' : 's'}.`);
+  };
+  reader.onerror = () => { showFeedback('Failed to read the file.'); };
+  reader.readAsText(file);
+}
+
+// --- UI attachment helpers ---
+
+function attachAddComplimentForm() {
+  if (typeof document === 'undefined') return;
+  const toggle = document.getElementById('add-compliment-toggle');
+  const form = document.getElementById('add-compliment-form');
+  const submit = document.getElementById('add-compliment-submit');
+  const textarea = document.getElementById('add-compliment-text');
+  if (!toggle || !form || !submit || !textarea) return;
+
+  toggle.addEventListener('click', () => {
+    if (form.hasAttribute('hidden')) {
+      form.removeAttribute('hidden');
+      textarea.focus();
+    } else {
+      form.setAttribute('hidden', '');
+    }
+  });
+
+  submit.addEventListener('click', () => {
+    const text = textarea.value.trim();
+    if (!text) return;
+    addPersonalCompliment(text);
+    textarea.value = '';
+    form.setAttribute('hidden', '');
+    showFeedback('Compliment added to your collection!');
+  });
+}
+
+function attachCollectionToggle() {
+  if (typeof document === 'undefined') return;
+  const btn = document.getElementById('collection-toggle');
+  if (btn) btn.addEventListener('click', toggleCollectionPanel);
+}
+
+function attachExportImport() {
+  if (typeof document === 'undefined') return;
+  const exportBtn = document.getElementById('export-btn');
+  const importBtn = document.getElementById('import-btn');
+  const importInput = document.getElementById('import-input');
+  if (exportBtn) exportBtn.addEventListener('click', exportCollection);
+  if (importBtn && importInput) {
+    importBtn.addEventListener('click', () => importInput.click());
+    importInput.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (file) importCollection(file);
+      e.target.value = '';
+    });
+  }
+}
+
 if (typeof module !== 'undefined') {
   module.exports = {
     applyRandomBackgroundColor,
@@ -484,6 +828,18 @@ if (typeof module !== 'undefined') {
     getComplimentHistory,
     recordComplimentInHistory,
     renderComplimentHistory,
-    COMPLIMENTS
+    COMPLIMENTS,
+    buildComplimentPool,
+    pickWeighted,
+    getPersonalCompliments,
+    savePersonalCompliments,
+    getRatings,
+    saveRatings,
+    addPersonalCompliment,
+    deletePersonalCompliment,
+    rateCurrentCompliment,
+    renderCollectionPanel,
+    validateImport,
+    mergeCollection,
   };
 }
