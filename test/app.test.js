@@ -1,5 +1,16 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+test('main page renders built with care under the footer text', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+
+  assert.match(
+    html,
+    /<footer class="site-footer">Made with care · Compliment Mirror<br \/>Built with care<\/footer>/
+  );
+});
 
 function createElement(tagName) {
   const classSet = new Set();
