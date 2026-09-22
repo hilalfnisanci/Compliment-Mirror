@@ -1,5 +1,19 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+test('page footer renders Built with care under the footer text', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const footerMatch = html.match(/<footer class="site-footer">([\s\S]*?)<\/footer>/);
+
+  assert.ok(footerMatch, 'expected a site footer on the main page');
+  assert.match(
+    footerMatch[1],
+    /Made with care · Compliment Mirror[\s\S]*Built with care/,
+    'expected Built with care to render directly under the footer text'
+  );
+});
 
 function createElement(tagName) {
   const classSet = new Set();
